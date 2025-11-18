@@ -1,13 +1,17 @@
 package com.example.recepiesapp
 
 import android.os.Bundle
-import androidx.appcompat.app.AppCompatActivity
+import android.view.View
 import android.webkit.WebView
+import androidx.activity.enableEdgeToEdge
+import androidx.appcompat.app.AppCompatActivity
 
 class TermsOfUseActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
         setContentView(R.layout.activity_terms_of_use)
+        findViewById<View>(R.id.termsRoot).applySystemBarsPadding()
 
         val webView = findViewById<WebView>(R.id.webViewTerms)
         webView.settings.javaScriptEnabled = true

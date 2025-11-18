@@ -23,9 +23,11 @@
         <androidx.appcompat.widget.SearchView
             android:id="@+id/searchView"
             android:layout_width="0dp"
-            android:layout_height="match_parent"
+            android:layout_height="48dp"
             android:hint="@string/searchText"
             android:layout_weight="1"
+            android:iconifiedByDefault="false"
+            android:layout_marginVertical="8dp"
             android:backgroundTint="@color/secondaryAccent"/>
 
         <ImageButton

@@ -10,9 +10,9 @@ import android.widget.Spinner
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.widget.SearchView
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.recepiesapp.databinding.ActivityMainBinding
-import androidx.appcompat.widget.SearchView
 import java.util.Locale
 
 class MainActivity : AppCompatActivity() {
@@ -24,15 +24,15 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
-        binding = ActivityMainBinding.inflate(layoutInflater)
-        setContentView(binding.root)
+//        enableEdgeToEdge()
+//        binding = ActivityMainBinding.inflate(layoutInflater)
+//        setContentView(binding.root)
 
         setAppLanguage(getCurrentLanguage())
-
         enableEdgeToEdge()
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        binding.root.applySystemBarsPadding()
 
         recipeRepository = RecipeRepository(this)
         recipes = recipeRepository.loadRecipes()
@@ -64,10 +64,18 @@ class MainActivity : AppCompatActivity() {
     private fun setupRecyclerView() {
         binding.recyclerViewRecipes.layoutManager = LinearLayoutManager(this)
         binding.recyclerViewRecipes.adapter = recipesAdapter
-        recipesAdapter.submitList(recipes)
+        recipesAdapter.submitList(recipes.toList())
     }
 
     private fun setupSearch() {
+        binding.searchView.apply {
+            setIconifiedByDefault(false)
+            isIconified = false
+            setOnClickListener {
+                isIconified = false
+                requestFocus()
+            }
+        }
         binding.searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
             override fun onQueryTextSubmit(query: String?): Boolean {
                 searchRecipes(query ?: "")
@@ -79,11 +87,12 @@ class MainActivity : AppCompatActivity() {
                 return true
             }
         })
+        binding.searchView.clearFocus()
     }
 
     private fun searchRecipes(query: String) {
         val filteredRecipes = if (query.isEmpty()) {
-            recipes // Показать все рецепты, если строка пуста
+            recipes.toList() // Показать все рецепты, если строка пуста
         } else {
             recipes.filter { recipe ->
                 recipe.title.contains(query, ignoreCase = true) ||
@@ -118,7 +127,7 @@ class MainActivity : AppCompatActivity() {
 
     fun addRecipe(newRecipe: Recipe) {
         recipes.add(newRecipe)
-        recipesAdapter.submitList(recipes.toMutableList())
+        recipesAdapter.submitList(recipes.toList())
         recipeRepository.saveRecipes(recipes)
         Log.d("RecipesApp Add", "Рецепт добавлен и сохранён: $newRecipe")
     }

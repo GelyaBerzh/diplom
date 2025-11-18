@@ -1,6 +1,7 @@
 package com.example.recepiesapp
 
 import android.content.Intent
+import android.graphics.Rect
 import android.os.Bundle
 import android.util.Log
 import android.view.View
@@ -11,15 +12,18 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.ImageButton
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.chip.Chip
 import com.google.android.material.chip.ChipGroup
 
 class AddRecipeActivity : AppCompatActivity() {
 
+    private lateinit var scrollView: ScrollView
     private lateinit var ingredientsLayout: LinearLayout
     private lateinit var ingredientsList: List<String>
     private lateinit var units: List<String>
@@ -30,14 +34,25 @@ class AddRecipeActivity : AppCompatActivity() {
     private lateinit var btnAddTag: Button
 
     private val tags = mutableListOf<String>()
+    private var focusedView: View? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
         setContentView(R.layout.activity_add_recipe)
+        scrollView = findViewById(R.id.addRecipeRoot)
+        scrollView.applySystemBarsPadding(onInsetsChanged = { maybeScrollFocusedView() })
 
         chipGroupTags = findViewById(R.id.chipGroupTags)
         etTagInput = findViewById(R.id.etTagInput)
         btnAddTag = findViewById(R.id.btnAddTag)
+
+        listOf<View>(
+            findViewById(R.id.etTitle),
+            findViewById(R.id.etDescription),
+            findViewById(R.id.etInstructions),
+            etTagInput
+        ).forEach { it.registerAutoScroll() }
 
         btnAddTag.setOnClickListener {
             addTag()
@@ -78,6 +93,9 @@ class AddRecipeActivity : AppCompatActivity() {
 
         val quantityEditText = ingredientView.findViewById<EditText>(R.id.etQuantity)
         val unitSpinner = ingredientView.findViewById<Spinner>(R.id.spUnit)
+
+        autoCompleteTextView.registerAutoScroll()
+        quantityEditText.registerAutoScroll()
 
         // настройка выпадающего списка для единиц измерения
         val unitAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, units)
@@ -164,4 +182,33 @@ class AddRecipeActivity : AppCompatActivity() {
 
         chipGroupTags.addView(chip)
     }
+
+    private fun View.registerAutoScroll() {
+        setOnFocusChangeListener { v, hasFocus ->
+            if (hasFocus) {
+                focusedView = v
+                scrollToView(v)
+            } else if (focusedView == v) {
+                focusedView = null
+            }
+        }
+    }
+
+    private fun scrollToView(target: View) {
+        scrollView.post {
+            val rect = Rect()
+            target.getDrawingRect(rect)
+            scrollView.offsetDescendantRectToMyCoords(target, rect)
+            val offset = dpToPx(50)
+            val y = (rect.top - offset).coerceAtLeast(0)
+            scrollView.smoothScrollTo(0, y)
+        }
+    }
+
+    private fun maybeScrollFocusedView() {
+        focusedView?.let { scrollToView(it) }
+    }
+
+    private fun dpToPx(dp: Int): Int =
+        (dp * resources.displayMetrics.density).toInt()
 }
