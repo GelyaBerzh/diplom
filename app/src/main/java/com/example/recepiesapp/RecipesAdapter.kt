@@ -1,7 +1,10 @@
 package com.example.recepiesapp
 
+import android.net.Uri
 import android.view.LayoutInflater
 import android.view.ViewGroup
+import android.widget.ImageView
+import androidx.core.view.isVisible
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
@@ -9,7 +12,9 @@ import com.example.recepiesapp.databinding.ItemRecipeBinding
 
 class RecipesAdapter(
     private val onItemClick: (Recipe) -> Unit,
-    private val getDescriptionPreview: (String) -> String
+    private val getDescriptionPreview: (String) -> String,
+    private val onEditClick: (Recipe) -> Unit,
+    private val onDeleteClick: (Recipe) -> Unit
 ) : ListAdapter<Recipe, RecipesAdapter.RecipeViewHolder>(DiffCallback()) {
 
     class DiffCallback : DiffUtil.ItemCallback<Recipe>() {
@@ -20,25 +25,55 @@ class RecipesAdapter(
             oldItem == newItem
     }
 
-    class RecipeViewHolder(private val binding: ItemRecipeBinding) : RecyclerView.ViewHolder(binding.root) {
+    class RecipeViewHolder(
+        private val binding: ItemRecipeBinding,
+        private val getDescriptionPreview: (String) -> String,
+        private val onEditClick: (Recipe) -> Unit,
+        private val onDeleteClick: (Recipe) -> Unit
+    ) : RecyclerView.ViewHolder(binding.root) {
+
+        private val placeholderPadding =
+            binding.root.context.resources.getDimensionPixelSize(R.dimen.recipe_image_placeholder_padding)
+
         fun bind(recipe: Recipe) {
             binding.tvTitle.text = recipe.title
-            binding.tvIngredients.text = "Ингредиенты:\n${recipe.ingredients.joinToString("\n")}"
-            binding.tvDescription.text = "Описание:\n${recipe.description}" // Доделать с обрезанием описания если оно большое
-            binding.tvTags.text = "Теги:\n${recipe.tags.joinToString("\n")}"
+            binding.tvDescription.text = getDescriptionPreview(recipe.description)
+            binding.tvServings.text =
+                binding.root.context.getString(R.string.servings_text, recipe.servings)
+            binding.tvTags.text =
+                recipe.tags.takeIf { it.isNotEmpty() }?.joinToString("  ") ?: ""
+            binding.tvTags.isVisible = binding.tvTags.text.isNotBlank()
+
+            binding.btnEdit.setOnClickListener { onEditClick(recipe) }
+            binding.btnDelete.setOnClickListener { onDeleteClick(recipe) }
+
+            binding.ivRecipeImage.apply {
+                if (recipe.imageUri.isNullOrBlank()) {
+                    setImageResource(R.drawable.ic_camera)
+                    scaleType = ImageView.ScaleType.CENTER_INSIDE
+                    setPadding(
+                        placeholderPadding,
+                        placeholderPadding,
+                        placeholderPadding,
+                        placeholderPadding
+                    )
+                } else {
+                    setImageURI(Uri.parse(recipe.imageUri))
+                    scaleType = ImageView.ScaleType.CENTER_CROP
+                    setPadding(0, 0, 0, 0)
+                }
+            }
         }
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecipeViewHolder {
         val binding = ItemRecipeBinding.inflate(LayoutInflater.from(parent.context), parent, false)
-        return RecipeViewHolder(binding)
+        return RecipeViewHolder(binding, getDescriptionPreview, onEditClick, onDeleteClick)
     }
 
     override fun onBindViewHolder(holder: RecipeViewHolder, position: Int) {
-        holder.itemView.setOnClickListener {
-            val recipe = getItem(position)
-            onItemClick(recipe) // Передача клика в MainActivity
-        }
-        holder.bind(getItem(position))
+        val recipe = getItem(position)
+        holder.itemView.setOnClickListener { onItemClick(recipe) }
+        holder.bind(recipe)
     }
 }

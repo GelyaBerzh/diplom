@@ -2,55 +2,100 @@ package com.example.recepiesapp
 
 import android.content.Intent
 import android.graphics.Rect
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import android.view.MotionEvent
 import android.view.View
-import android.view.ViewGroup
+import android.view.ViewConfiguration
 import android.widget.ArrayAdapter
 import android.widget.AutoCompleteTextView
-import android.widget.Button
-import android.widget.EditText
-import android.widget.ImageButton
-import android.widget.LinearLayout
+import android.widget.GridLayout
+import android.widget.ImageView
 import android.widget.ScrollView
 import android.widget.Spinner
-import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import com.google.android.material.appbar.MaterialToolbar
+import com.google.android.material.button.MaterialButton
 import com.google.android.material.chip.Chip
 import com.google.android.material.chip.ChipGroup
+import com.google.android.material.floatingactionbutton.FloatingActionButton
+import com.google.android.material.imageview.ShapeableImageView
+import com.google.android.material.textfield.TextInputEditText
 
 class AddRecipeActivity : AppCompatActivity() {
 
     private lateinit var scrollView: ScrollView
-    private lateinit var ingredientsLayout: LinearLayout
+    private lateinit var ingredientsLayout: GridLayout
     private lateinit var ingredientsList: List<String>
     private lateinit var units: List<String>
-    private var ingredientsFields: MutableList<Triple<AutoCompleteTextView, EditText, Spinner>> = mutableListOf()
+    private var ingredientsFields: MutableList<Triple<AutoCompleteTextView, TextInputEditText, Spinner>> = mutableListOf()
 
     private lateinit var chipGroupTags: ChipGroup
-    private lateinit var etTagInput: EditText
-    private lateinit var btnAddTag: Button
+    private lateinit var etTagInput: TextInputEditText
+    private lateinit var btnAddTag: MaterialButton
+    private lateinit var ivRecipeImage: ShapeableImageView
+    private lateinit var etServings: TextInputEditText
+    private lateinit var ingredientAdapter: ArrayAdapter<String>
 
     private val tags = mutableListOf<String>()
     private var focusedView: View? = null
+    private val placeholderTag = "ingredient_placeholder"
+    private var selectedImageUri: Uri? = null
+    private var imagePlaceholderPadding: Int = 0
+    private var recipeToEdit: Recipe? = null
+    private var isEditMode: Boolean = false
+
+    private val pickImageLauncher =
+        registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            uri?.let {
+                releasePersistedUriPermission(selectedImageUri)
+                persistUriPermission(it)
+                selectedImageUri = it
+                updateImagePreview(it)
+            }
+        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContentView(R.layout.activity_add_recipe)
+
+        // Настройка Toolbar
+        val toolbar = findViewById<MaterialToolbar>(R.id.toolbar)
+        setSupportActionBar(toolbar)
+        supportActionBar?.setDisplayHomeAsUpEnabled(true)
+        supportActionBar?.setDisplayShowHomeEnabled(true)
+        toolbar.setNavigationOnClickListener { finish() }
+
         scrollView = findViewById(R.id.addRecipeRoot)
         scrollView.applySystemBarsPadding(onInsetsChanged = { maybeScrollFocusedView() })
 
+        imagePlaceholderPadding = resources.getDimensionPixelSize(R.dimen.recipe_image_placeholder_padding)
+        ivRecipeImage = findViewById(R.id.ivRecipeImage)
+        val btnChangeImage = findViewById<FloatingActionButton>(R.id.btnChangeImage)
+        val savedUri = savedInstanceState?.getString(KEY_IMAGE_URI)?.takeIf { it.isNotBlank() }?.let { Uri.parse(it) }
+        selectedImageUri = savedUri
+        updateImagePreview(selectedImageUri)
+
+        val imageClickListener = View.OnClickListener { openImagePicker() }
+        ivRecipeImage.setOnClickListener(imageClickListener)
+        btnChangeImage.setOnClickListener(imageClickListener)
+
         chipGroupTags = findViewById(R.id.chipGroupTags)
         etTagInput = findViewById(R.id.etTagInput)
-        btnAddTag = findViewById(R.id.btnAddTag)
+        btnAddTag = findViewById<MaterialButton>(R.id.btnAddTag)
+        etServings = findViewById(R.id.etServings)
 
         listOf<View>(
-            findViewById(R.id.etTitle),
-            findViewById(R.id.etDescription),
-            findViewById(R.id.etInstructions),
+            findViewById<TextInputEditText>(R.id.etTitle),
+            findViewById<TextInputEditText>(R.id.etDescription),
+            findViewById<TextInputEditText>(R.id.etInstructions),
+            etServings,
             etTagInput
         ).forEach { it.registerAutoScroll() }
 
@@ -68,30 +113,40 @@ class AddRecipeActivity : AppCompatActivity() {
             "г", "кг", "мл", "л", "ч.л.", "ст.л.", "щепотка", "шт"
         )
 
-        val adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, ingredientsList)
+        ingredientAdapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, ingredientsList)
 
-        // Инициализация первого поля ингредиента
-        addIngredientField(adapter)
+        recipeToEdit = retrieveRecipeToEdit()
+        isEditMode = recipeToEdit != null
+        if (isEditMode) {
+            toolbar.title = getString(R.string.edit_recipe_title)
+            populateFieldsFromRecipe(recipeToEdit!!)
+        } else {
+            addIngredientField(ingredientAdapter)
+        }
 
         // Кнопка для добавления нового поля ингредиента
-        findViewById<Button>(R.id.btnAddIngredient).setOnClickListener {
-            addIngredientField(adapter)
+        findViewById<MaterialButton>(R.id.btnAddIngredient).setOnClickListener {
+            addIngredientField(ingredientAdapter)
         }
 
         // Кнопка сохранения рецепта
-        findViewById<Button>(R.id.btnSave).setOnClickListener {
+        findViewById<MaterialButton>(R.id.btnSave).setOnClickListener {
             saveRecipe()
         }
     }
 
-    private fun addIngredientField(adapter: ArrayAdapter<String>) {
+    private fun addIngredientField(
+        adapter: ArrayAdapter<String>,
+        initialData: IngredientInitialData? = null
+    ) {
         val inflater = layoutInflater
         val ingredientView = inflater.inflate(R.layout.item_ingredient, ingredientsLayout, false)
+        ingredientView.layoutParams = createGridChildLayoutParams()
 
         val autoCompleteTextView = ingredientView.findViewById<AutoCompleteTextView>(R.id.etIngredient)
         autoCompleteTextView.setAdapter(adapter)
 
-        val quantityEditText = ingredientView.findViewById<EditText>(R.id.etQuantity)
+        val quantityEditText = ingredientView.findViewById<TextInputEditText>(R.id.etQuantity)
         val unitSpinner = ingredientView.findViewById<Spinner>(R.id.spUnit)
 
         autoCompleteTextView.registerAutoScroll()
@@ -102,24 +157,35 @@ class AddRecipeActivity : AppCompatActivity() {
         unitAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         unitSpinner.adapter = unitAdapter
 
-        unitSpinner.setSelection(0)
+        initialData?.let { data ->
+            autoCompleteTextView.setText(data.name, false)
+            quantityEditText.setText(data.quantity)
+            val unitIndex = units.indexOf(data.unit).takeIf { it >= 0 } ?: 0
+            unitSpinner.setSelection(unitIndex)
+        } ?: unitSpinner.setSelection(0)
 
-        val removeButton = ingredientView.findViewById<ImageButton>(R.id.btnRemove)
+        val removeButton = ingredientView.findViewById<MaterialButton>(R.id.btnRemove)
 
-        // Добавление обработчика для кнопки удаления
-        removeButton?.setOnClickListener {
-            ingredientsLayout.removeView(ingredientView) // удаляем вид
-            ingredientsFields.removeIf { it.first == autoCompleteTextView } // удаляем из списка
+        val removeAction = {
+            ingredientsLayout.removeView(ingredientView)
+            ingredientsFields.removeIf { it.first == autoCompleteTextView }
+            syncIngredientPlaceholders()
         }
+
+        removeButton?.setOnClickListener { removeAction() }
+        ingredientView.enableSwipeToDelete { removeAction() }
 
         ingredientsLayout.addView(ingredientView)
         ingredientsFields.add(Triple(autoCompleteTextView, quantityEditText, unitSpinner))
+        syncIngredientPlaceholders()
     }
 
     private fun saveRecipe() {
-        val title = findViewById<EditText>(R.id.etTitle).text.toString().trim()
-        val description = findViewById<EditText>(R.id.etDescription).text.toString().trim()
-        val instructions = findViewById<EditText>(R.id.etInstructions).text.toString().trim()
+        val title = findViewById<TextInputEditText>(R.id.etTitle).text.toString().trim()
+        val description = findViewById<TextInputEditText>(R.id.etDescription).text.toString().trim()
+        val instructions = findViewById<TextInputEditText>(R.id.etInstructions).text.toString().trim()
+        val servingsValue = etServings.text?.toString()?.trim()
+        val servings = servingsValue?.toIntOrNull()?.takeIf { it > 0 } ?: DEFAULT_SERVINGS
 
 //        val tags = findViewById<EditText>(R.id.etTags).text.toString().split(",").map { it.trim() }.filter { it.isNotEmpty() }
         val recipeTags = tags.toList()
@@ -136,17 +202,23 @@ class AddRecipeActivity : AppCompatActivity() {
         }
 
         if (title.isNotEmpty() && ingredients.isNotEmpty()) {
-            val newRecipe = Recipe(
-                id = generateUniqueId(),
+            val recipeId = recipeToEdit?.id ?: generateUniqueId()
+            val resultRecipe = Recipe(
+                id = recipeId,
                 title = title,
                 ingredients = ingredients,
                 description = description,
                 instructions = instructions,
-                tags = recipeTags
+                tags = recipeTags,
+                servings = servings,
+                imageUri = selectedImageUri?.toString()
             )
 
             val resultIntent = Intent().apply {
-                putExtra("NEW_RECIPE", newRecipe)
+                putExtra(
+                    if (isEditMode) EXTRA_UPDATED_RECIPE else EXTRA_NEW_RECIPE,
+                    resultRecipe
+                )
             }
             setResult(RESULT_OK, resultIntent)
             finish()
@@ -162,11 +234,12 @@ class AddRecipeActivity : AppCompatActivity() {
     }
 
     private fun addTag() {
-        val tagText = "#" + etTagInput.text.toString().trim()
+        val tagText = etTagInput.text.toString().trim()
         if (tagText.isNotEmpty()) {
-            tags.add(tagText)
-            createChip(tagText)
-            etTagInput.text.clear()
+            val tagWithHash = "#$tagText"
+            tags.add(tagWithHash)
+            createChip(tagWithHash)
+            etTagInput.text?.clear()
         }
     }
 
@@ -209,6 +282,209 @@ class AddRecipeActivity : AppCompatActivity() {
         focusedView?.let { scrollToView(it) }
     }
 
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        selectedImageUri?.toString()?.let { outState.putString(KEY_IMAGE_URI, it) }
+    }
+
     private fun dpToPx(dp: Int): Int =
         (dp * resources.displayMetrics.density).toInt()
+
+    private fun createGridChildLayoutParams(): GridLayout.LayoutParams =
+        GridLayout.LayoutParams().apply {
+            width = 0
+            height = GridLayout.LayoutParams.WRAP_CONTENT
+            columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f)
+            setMargins(dpToPx(8), dpToPx(8), dpToPx(8), dpToPx(8))
+        }
+
+    private fun syncIngredientPlaceholders() {
+        val placeholders = mutableListOf<View>()
+        for (i in 0 until ingredientsLayout.childCount) {
+            val child = ingredientsLayout.getChildAt(i)
+            if (child.tag == placeholderTag) {
+                placeholders.add(child)
+            }
+        }
+        placeholders.forEach { ingredientsLayout.removeView(it) }
+
+        if (ingredientsFields.size % 2 != 0) {
+            val placeholder = View(this).apply {
+                tag = placeholderTag
+                isEnabled = false
+                isClickable = false
+                layoutParams = createGridChildLayoutParams()
+                alpha = 0f
+            }
+            ingredientsLayout.addView(placeholder)
+        }
+    }
+
+    private fun View.enableSwipeToDelete(onDelete: () -> Unit) {
+        val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
+        var downX = 0f
+        var swiping = false
+
+        setOnTouchListener { _, event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    downX = event.rawX
+                    swiping = false
+                    false
+                }
+
+                MotionEvent.ACTION_MOVE -> {
+                    val deltaX = event.rawX - downX
+                    if (!swiping && deltaX < -touchSlop) {
+                        swiping = true
+                    }
+                    if (swiping) {
+                        val translation = deltaX.coerceAtMost(0f)
+                        translationX = translation
+                        val alphaFactor = 1f + (translation / width.coerceAtLeast(1))
+                        alpha = alphaFactor.coerceIn(0.2f, 1f)
+                        true
+                    } else {
+                        false
+                    }
+                }
+
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    if (swiping) {
+                        val shouldDismiss = translationX <= -width * 0.35f
+                        if (shouldDismiss) {
+                            animate()
+                                .translationX(-width.toFloat())
+                                .alpha(0f)
+                                .setDuration(200L)
+                                .withEndAction {
+                                    onDelete()
+                                    translationX = 0f
+                                    alpha = 1f
+                                }
+                                .start()
+                        } else {
+                            animate()
+                                .translationX(0f)
+                                .alpha(1f)
+                                .setDuration(200L)
+                                .start()
+                        }
+                        swiping = false
+                        true
+                    } else {
+                        false
+                    }
+                }
+
+                else -> false
+            }
+        }
+    }
+
+    private fun openImagePicker() {
+        pickImageLauncher.launch(IMAGE_MIME_TYPES)
+    }
+
+    private fun updateImagePreview(uri: Uri?) {
+        if (uri == null) {
+            ivRecipeImage.setImageResource(R.drawable.ic_camera)
+            ivRecipeImage.scaleType = ImageView.ScaleType.CENTER_INSIDE
+            ivRecipeImage.setPadding(
+                imagePlaceholderPadding,
+                imagePlaceholderPadding,
+                imagePlaceholderPadding,
+                imagePlaceholderPadding
+            )
+        } else {
+            ivRecipeImage.setImageURI(uri)
+            ivRecipeImage.scaleType = ImageView.ScaleType.CENTER_CROP
+            ivRecipeImage.setPadding(0, 0, 0, 0)
+        }
+    }
+
+    private fun retrieveRecipeToEdit(): Recipe? =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            intent.getSerializableExtra(EXTRA_RECIPE_TO_EDIT, Recipe::class.java)
+        } else {
+            @Suppress("DEPRECATION")
+            intent.getSerializableExtra(EXTRA_RECIPE_TO_EDIT) as? Recipe
+        }
+
+    private fun populateFieldsFromRecipe(recipe: Recipe) {
+        findViewById<TextInputEditText>(R.id.etTitle).setText(recipe.title)
+        findViewById<TextInputEditText>(R.id.etDescription).setText(recipe.description)
+        findViewById<TextInputEditText>(R.id.etInstructions).setText(recipe.instructions)
+        etServings.setText(recipe.servings.toString())
+
+        if (selectedImageUri == null && !recipe.imageUri.isNullOrBlank()) {
+            selectedImageUri = Uri.parse(recipe.imageUri)
+        }
+        updateImagePreview(selectedImageUri)
+
+        tags.clear()
+        chipGroupTags.removeAllViews()
+        recipe.tags.forEach {
+            tags.add(it)
+            createChip(it)
+        }
+
+        ingredientsLayout.removeAllViews()
+        ingredientsFields.clear()
+        recipe.ingredients.forEach { ingredient ->
+            val parsed = parseIngredientForEdit(ingredient)
+            addIngredientField(ingredientAdapter, parsed)
+        }
+        if (ingredientsFields.isEmpty()) {
+            addIngredientField(ingredientAdapter)
+        } else {
+            syncIngredientPlaceholders()
+        }
+    }
+
+    private fun parseIngredientForEdit(raw: String): IngredientInitialData {
+        val parts = raw.trim().split("\\s+".toRegex())
+        return if (parts.size >= 3) {
+            val unitCandidate = parts.last()
+            val quantityCandidate = parts[parts.size - 2]
+            val name = parts.dropLast(2).joinToString(" ")
+            val normalizedUnit = if (units.contains(unitCandidate)) unitCandidate else units.first()
+            IngredientInitialData(name, quantityCandidate, normalizedUnit)
+        } else {
+            IngredientInitialData(raw, "", units.first())
+        }
+    }
+
+    private fun persistUriPermission(uri: Uri) {
+        try {
+            contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        } catch (securityException: SecurityException) {
+            Log.w(TAG, "Не удалось сохранить доступ к изображению", securityException)
+        }
+    }
+
+    private fun releasePersistedUriPermission(uri: Uri?) {
+        if (uri == null) return
+        try {
+            contentResolver.releasePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        } catch (securityException: SecurityException) {
+            Log.w(TAG, "Не удалось освободить доступ к изображению", securityException)
+        }
+    }
+
+    private data class IngredientInitialData(
+        val name: String,
+        val quantity: String,
+        val unit: String
+    )
+
+    companion object {
+        private const val TAG = "AddRecipeActivity"
+        private const val KEY_IMAGE_URI = "key_image_uri"
+        const val EXTRA_NEW_RECIPE = "NEW_RECIPE"
+        const val EXTRA_UPDATED_RECIPE = "UPDATED_RECIPE"
+        const val EXTRA_RECIPE_TO_EDIT = "EXTRA_RECIPE_TO_EDIT"
+        private const val DEFAULT_SERVINGS = 1
+        private val IMAGE_MIME_TYPES = arrayOf("image/*")
+    }
 }

@@ -4,56 +4,122 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    app:cardCornerRadius="10dp"
-    app:cardElevation="4dp"
-    android:layout_marginStart="16dp"
-    android:layout_marginEnd="16dp"
-    android:layout_marginTop="8dp"
-    android:layout_marginBottom="8dp"
-    android:backgroundTint="@color/cardBackground">
+    app:cardCornerRadius="12dp"
+    app:cardElevation="2dp"
+    app:cardBackgroundColor="@color/cardBackground">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:background="@color/cardBackground">
+        android:orientation="vertical"
+        android:padding="12dp">
 
-        <AutoCompleteTextView
-            android:id="@+id/etIngredient"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:hint="@string/ingredient_hint"
-            android:completionThreshold="1"
-            android:inputType="text"
-            android:layout_weight="1"
-            android:layout_marginEnd="8dp"
-            android:backgroundTint="@color/secondaryAccent"/>
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
 
-        <EditText
-            android:id="@+id/etQuantity"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:hint="@string/count_hint"
-            android:inputType="numberDecimal"
-            android:layout_weight="0.5"
-            android:layout_marginEnd="8dp"
-            android:backgroundTint="@color/secondaryAccent"/>
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/tilIngredient"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="8dp"
+                app:boxStrokeColor="@color/secondaryAccent"
+                app:hintTextColor="@color/secondaryAccent"
+                style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                app:boxCornerRadiusTopStart="8dp"
+                app:boxCornerRadiusTopEnd="8dp"
+                app:boxCornerRadiusBottomStart="8dp"
+                app:boxCornerRadiusBottomEnd="8dp"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toStartOf="@+id/btnRemove"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintBottom_toBottomOf="parent">
 
-        <Spinner
-            android:id="@+id/spUnit"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="0.7"
-            android:prompt="@string/unit_prompt"
-            android:backgroundTint="@color/primaryAccent"/>
+                <AutoCompleteTextView
+                    android:id="@+id/etIngredient"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="@string/ingredient_hint"
+                    android:completionThreshold="1"
+                    android:inputType="textMultiLine"
+                    android:maxLines="2"
+                    android:minLines="1"
+                    android:gravity="top|start"
+                    android:scrollHorizontally="false"
+                    android:ellipsize="end"
+                    android:textColor="@color/textPrimary"
+                    android:textColorHint="@color/secondaryAccent"
+                    android:minHeight="86dp"
+                    android:paddingStart="20dp"
+                    android:paddingEnd="20dp"
+                    android:paddingTop="24dp"
+                    />
 
-        <ImageButton
-            android:id="@+id/btnRemove"
-            android:layout_width="wrap_content"
-            android:layout_height="match_parent"
-            android:src="@android:drawable/ic_menu_delete"
-            android:contentDescription="@string/delete_ingredient_button"
-            android:layout_gravity="center_vertical"/>
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnRemove"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:layout_marginTop="4dp"
+                android:layout_marginEnd="4dp"
+                android:contentDescription="@string/delete_ingredient_button"
+                style="@style/Widget.Material3.Button.IconButton"
+                app:icon="@android:drawable/ic_menu_delete"
+                app:iconSize="18dp"
+                app:iconTint="@color/primaryAccent"
+                app:backgroundTint="@android:color/transparent"
+                app:cornerRadius="16dp"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintTop_toTopOf="parent" />
+
+        </androidx.constraintlayout.widget.ConstraintLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginEnd="12dp"
+                app:boxStrokeColor="@color/secondaryAccent"
+                app:hintTextColor="@color/secondaryAccent"
+                style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                app:boxCornerRadiusTopStart="8dp"
+                app:boxCornerRadiusTopEnd="8dp"
+                app:boxCornerRadiusBottomStart="8dp"
+                app:boxCornerRadiusBottomEnd="8dp">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/etQuantity"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="@string/count_hint"
+                    android:inputType="numberDecimal"
+                    android:textColor="@color/textPrimary"
+                    android:textColorHint="@color/secondaryAccent"
+                    android:minHeight="56dp" />
+
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <Spinner
+                android:id="@+id/spUnit"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:minHeight="56dp"
+                android:layout_weight="1"
+                android:prompt="@string/unit_prompt"
+                android:background="@android:drawable/btn_dropdown"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:textColor="@color/textPrimary" />
+
+        </LinearLayout>
 
     </LinearLayout>
 </androidx.cardview.widget.CardView>

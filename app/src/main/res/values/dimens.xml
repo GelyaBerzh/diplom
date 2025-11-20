@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="recipe_image_placeholder_padding">32dp</dimen>
+    <dimen name="chip_pill_radius">16dp</dimen>
+    <dimen name="ingredient_row_vertical_padding">8dp</dimen>
+</resources>
+

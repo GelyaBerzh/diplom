@@ -8,5 +8,7 @@ data class Recipe(
     val ingredients: List<String>,
     val description: String, // добавил описание
     val instructions: String,
-    val tags: List<String>
+    val tags: List<String>,
+    val servings: Int = 1,
+    val imageUri: String? = null
 ) : Serializable

@@ -37,13 +37,10 @@ class MainActivity : AppCompatActivity() {
         recipeRepository = RecipeRepository(this)
         recipes = recipeRepository.loadRecipes()
         recipesAdapter = RecipesAdapter(
-            onItemClick = { selectedRecipe ->
-                val intent = Intent(this, RecipeDetailActivity::class.java).apply {
-                    putExtra("RECIPE", selectedRecipe)
-                }
-                startActivity(intent)
-            },
-            getDescriptionPreview = ::getDescriptionPreview
+            onItemClick = { openRecipeDetails(it) },
+            getDescriptionPreview = ::getDescriptionPreview,
+            onEditClick = { editRecipe(it) },
+            onDeleteClick = { confirmDeleteRecipe(it) }
         )
 
         setupRecyclerView()
@@ -107,21 +104,20 @@ class MainActivity : AppCompatActivity() {
     private fun setupAddButton() {
         binding.btnAddRecipe.setOnClickListener {
             val intent = Intent(this, AddRecipeActivity::class.java)
-            startActivityForResult(intent, 1)
+            startActivityForResult(intent, REQUEST_ADD_EDIT_RECIPE)
         }
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        if (resultCode == RESULT_OK && data != null) {
-            val newRecipe = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                data.getSerializableExtra("NEW_RECIPE", Recipe::class.java)
-            }
-            else {
-                @Suppress("DEPRECATION")
-                data.getSerializableExtra("NEW_RECIPE") as? Recipe
-            }
-            newRecipe?.let { addRecipe(it) }
+        if (requestCode != REQUEST_ADD_EDIT_RECIPE || resultCode != RESULT_OK || data == null) return
+
+        val updatedRecipe = data.getRecipeFromResult(AddRecipeActivity.EXTRA_UPDATED_RECIPE)
+        val newRecipe = data.getRecipeFromResult(AddRecipeActivity.EXTRA_NEW_RECIPE)
+
+        when {
+            updatedRecipe != null -> updateRecipe(updatedRecipe)
+            newRecipe != null -> addRecipe(newRecipe)
         }
     }
 
@@ -130,6 +126,18 @@ class MainActivity : AppCompatActivity() {
         recipesAdapter.submitList(recipes.toList())
         recipeRepository.saveRecipes(recipes)
         Log.d("RecipesApp Add", "Рецепт добавлен и сохранён: $newRecipe")
+    }
+
+    private fun updateRecipe(updatedRecipe: Recipe) {
+        val index = recipes.indexOfFirst { it.id == updatedRecipe.id }
+        if (index >= 0) {
+            recipes[index] = updatedRecipe
+            recipesAdapter.submitList(recipes.toList())
+            recipeRepository.saveRecipes(recipes)
+            Log.d("RecipesApp Update", "Рецепт обновлён: $updatedRecipe")
+        } else {
+            addRecipe(updatedRecipe)
+        }
     }
 
     fun getDescriptionPreview(description: String): String {
@@ -192,5 +200,49 @@ class MainActivity : AppCompatActivity() {
     private fun getCurrentLanguage(): String {
         val sharedPreferences = getSharedPreferences("AppSettings", MODE_PRIVATE)
         return sharedPreferences.getString("language", "ru") ?: "ru"
+    }
+
+    private fun openRecipeDetails(recipe: Recipe) {
+        val intent = Intent(this, RecipeDetailActivity::class.java).apply {
+            putExtra("RECIPE", recipe)
+        }
+        startActivity(intent)
+    }
+
+    private fun editRecipe(recipe: Recipe) {
+        val intent = Intent(this, AddRecipeActivity::class.java).apply {
+            putExtra(AddRecipeActivity.EXTRA_RECIPE_TO_EDIT, recipe)
+        }
+        startActivityForResult(intent, REQUEST_ADD_EDIT_RECIPE)
+    }
+
+    private fun confirmDeleteRecipe(recipe: Recipe) {
+        AlertDialog.Builder(this)
+            .setTitle(getString(R.string.delete_recipe_title))
+            .setMessage(getString(R.string.delete_recipe_message, recipe.title))
+            .setPositiveButton(R.string.delete) { _, _ -> deleteRecipe(recipe) }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
+    }
+
+    private fun deleteRecipe(recipe: Recipe) {
+        val removed = recipes.removeIf { it.id == recipe.id }
+        if (removed) {
+            recipesAdapter.submitList(recipes.toList())
+            recipeRepository.saveRecipes(recipes)
+            Log.d("RecipesApp Delete", "Рецепт удалён: $recipe")
+        }
+    }
+
+    private fun Intent.getRecipeFromResult(key: String): Recipe? =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            getSerializableExtra(key, Recipe::class.java)
+        } else {
+            @Suppress("DEPRECATION")
+            getSerializableExtra(key) as? Recipe
+        }
+
+    companion object {
+        private const val REQUEST_ADD_EDIT_RECIPE = 1
     }
 }
