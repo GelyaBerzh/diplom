@@ -11,6 +11,7 @@ import android.view.View
 import android.view.ViewConfiguration
 import android.widget.ArrayAdapter
 import android.widget.AutoCompleteTextView
+import android.widget.CheckBox
 import android.widget.GridLayout
 import android.widget.ImageView
 import android.widget.ScrollView
@@ -43,6 +44,8 @@ class AddRecipeActivity : AppCompatActivity() {
     private lateinit var ingredientAdapter: ArrayAdapter<String>
 
     private val tags = mutableListOf<String>()
+    private lateinit var dishTypeCheckboxes: List<CheckBox>
+    private lateinit var cookingMethodCheckboxes: List<CheckBox>
     private var focusedView: View? = null
     private val placeholderTag = "ingredient_placeholder"
     private var selectedImageUri: Uri? = null
@@ -90,6 +93,27 @@ class AddRecipeActivity : AppCompatActivity() {
         etTagInput = findViewById(R.id.etTagInput)
         btnAddTag = findViewById<MaterialButton>(R.id.btnAddTag)
         etServings = findViewById(R.id.etServings)
+
+        dishTypeCheckboxes = listOf(
+            findViewById(R.id.cbDishCold),
+            findViewById(R.id.cbDishFirst),
+            findViewById(R.id.cbDishHot),
+            findViewById(R.id.cbDishPreserves),
+            findViewById(R.id.cbDishDessert),
+            findViewById(R.id.cbDishDrinks),
+            findViewById(R.id.cbDishSide),
+            findViewById(R.id.cbDishSauces),
+            findViewById(R.id.cbDishBakery)
+        )
+
+        cookingMethodCheckboxes = listOf(
+            findViewById(R.id.cbMethodPot),
+            findViewById(R.id.cbMethodPan),
+            findViewById(R.id.cbMethodmulticooker),
+            findViewById(R.id.cbMethodOven),
+            findViewById(R.id.cbMethodGrill),
+            findViewById(R.id.cbMethodblender)
+        )
 
         listOf<View>(
             findViewById<TextInputEditText>(R.id.etTitle),
@@ -187,10 +211,18 @@ class AddRecipeActivity : AppCompatActivity() {
         val servingsValue = etServings.text?.toString()?.trim()
         val servings = servingsValue?.toIntOrNull()?.takeIf { it > 0 } ?: DEFAULT_SERVINGS
 
-//        val tags = findViewById<EditText>(R.id.etTags).text.toString().split(",").map { it.trim() }.filter { it.isNotEmpty() }
         val recipeTags = tags.toList()
 
-        val ingredients = ingredientsFields.mapNotNull { (ingredient, quantity, unit) ->
+        val dishType = dishTypeCheckboxes
+            .filter { it.isChecked }
+            .joinToString(", ") { it.text.toString() }
+
+        val cookingMethod = cookingMethodCheckboxes
+            .filter { it.isChecked }
+            .joinToString(", ") { it.text.toString() }
+
+        // Строки ингредиентов для отображения и хранения
+        val ingredientsStrings = ingredientsFields.mapNotNull { (ingredient, quantity, unit) ->
             val ingredientText = ingredient.text.toString().trim()
             val quantityText = quantity.text.toString().trim()
             val unitText = (unit as Spinner).selectedItem.toString()
@@ -201,17 +233,46 @@ class AddRecipeActivity : AppCompatActivity() {
             }
         }
 
-        if (title.isNotEmpty() && ingredients.isNotEmpty()) {
+        // Структура для расчёта КБЖУ
+        val ingredientAmounts = ingredientsFields.mapNotNull { (ingredient, quantity, unit) ->
+            val ingredientText = ingredient.text.toString().trim()
+            val quantityText = quantity.text.toString().trim()
+            val unitText = (unit as Spinner).selectedItem.toString()
+            val quantityValue = quantityText.toDoubleOrNull()
+
+            if (ingredientText.isNotEmpty() && quantityValue != null) {
+                IngredientAmount(
+                    name = ingredientText,
+                    quantity = quantityValue,
+                    unit = unitText
+                )
+            } else {
+                null
+            }
+        }
+
+        if (title.isNotEmpty() && ingredientsStrings.isNotEmpty()) {
             val recipeId = recipeToEdit?.id ?: generateUniqueId()
+            val existingViewCount = recipeToEdit?.viewCount ?: 0
+
+            val nutritionSummary = calculateRecipeNutrition(ingredientAmounts, servings)
+
             val resultRecipe = Recipe(
                 id = recipeId,
                 title = title,
-                ingredients = ingredients,
+                ingredients = ingredientsStrings,
                 description = description,
                 instructions = instructions,
                 tags = recipeTags,
+                dishType = dishType.takeIf { it.isNotEmpty() },
+                cookingMethod = cookingMethod.takeIf { it.isNotEmpty() },
                 servings = servings,
-                imageUri = selectedImageUri?.toString()
+                imageUri = selectedImageUri?.toString(),
+                caloriesPerServing = nutritionSummary.calories,
+                proteinPerServing = nutritionSummary.protein,
+                fatPerServing = nutritionSummary.fat,
+                carbsPerServing = nutritionSummary.carbs,
+                viewCount = existingViewCount
             )
 
             val resultIntent = Intent().apply {
@@ -417,6 +478,22 @@ class AddRecipeActivity : AppCompatActivity() {
         findViewById<TextInputEditText>(R.id.etInstructions).setText(recipe.instructions)
         etServings.setText(recipe.servings.toString())
 
+        val selectedDishTypes = recipe.dishType
+            ?.split(",")
+            ?.map { it.trim() }
+            ?: emptyList()
+        dishTypeCheckboxes.forEach { checkBox ->
+            checkBox.isChecked = selectedDishTypes.contains(checkBox.text.toString())
+        }
+
+        val selectedCookingMethods = recipe.cookingMethod
+            ?.split(",")
+            ?.map { it.trim() }
+            ?: emptyList()
+        cookingMethodCheckboxes.forEach { checkBox ->
+            checkBox.isChecked = selectedCookingMethods.contains(checkBox.text.toString())
+        }
+
         if (selectedImageUri == null && !recipe.imageUri.isNullOrBlank()) {
             selectedImageUri = Uri.parse(recipe.imageUri)
         }
@@ -477,6 +554,87 @@ class AddRecipeActivity : AppCompatActivity() {
         val quantity: String,
         val unit: String
     )
+
+    private data class Nutrition(
+        val calories: Double,
+        val protein: Double,
+        val fat: Double,
+        val carbs: Double
+    )
+
+    private data class IngredientAmount(
+        val name: String,
+        val quantity: Double,
+        val unit: String
+    )
+
+    // База КБЖУ на 100 г / мл / шт (примерные значения)
+    private val ingredientNutrition: Map<String, Nutrition> = mapOf(
+        "мука" to Nutrition(364.0, 10.3, 1.0, 76.0),
+        "яйца" to Nutrition(157.0, 12.7, 11.5, 0.7),
+        "соль" to Nutrition(0.0, 0.0, 0.0, 0.0),
+        "сахар" to Nutrition(399.0, 0.0, 0.0, 99.8),
+        "масло" to Nutrition(748.0, 0.5, 82.5, 0.8),
+        "молоко" to Nutrition(60.0, 3.2, 3.5, 4.7),
+        "картофель" to Nutrition(77.0, 2.0, 0.4, 17.0),
+        "лук" to Nutrition(41.0, 1.4, 0.2, 9.3),
+        "помидоры" to Nutrition(23.0, 1.1, 0.2, 3.8),
+        "чеснок" to Nutrition(149.0, 6.4, 0.5, 33.1),
+        "рис" to Nutrition(344.0, 7.0, 0.6, 76.0),
+        "капуста" to Nutrition(27.0, 1.8, 0.1, 5.4)
+    )
+
+    private fun toGrams(quantity: Double, unit: String, ingredientName: String): Double {
+        return when (unit) {
+            "г" -> quantity
+            "кг" -> quantity * 1000.0
+            "мл" -> quantity // условно 1 мл = 1 г для жидких
+            "л" -> quantity * 1000.0
+            "шт" -> {
+                // пример: для яиц считаем 1 шт ≈ 50 г
+                if (ingredientName.lowercase().contains("яйц")) quantity * 50.0 else quantity * 50.0
+            }
+            "ч.л." -> quantity * 5.0
+            "ст.л." -> quantity * 15.0
+            else -> quantity
+        }
+    }
+
+    private data class NutritionSummary(
+        val calories: Double,
+        val protein: Double,
+        val fat: Double,
+        val carbs: Double
+    )
+
+    private fun calculateRecipeNutrition(
+        ingredients: List<IngredientAmount>,
+        servings: Int
+    ): NutritionSummary {
+        var calories = 0.0
+        var protein = 0.0
+        var fat = 0.0
+        var carbs = 0.0
+
+        for (item in ingredients) {
+            val base = ingredientNutrition[item.name.lowercase()] ?: continue
+            val grams = toGrams(item.quantity, item.unit, item.name)
+            val factor = grams / 100.0
+
+            calories += base.calories * factor
+            protein += base.protein * factor
+            fat += base.fat * factor
+            carbs += base.carbs * factor
+        }
+
+        val perServing = servings.coerceAtLeast(1)
+        return NutritionSummary(
+            calories / perServing,
+            protein / perServing,
+            fat / perServing,
+            carbs / perServing
+        )
+    }
 
     companion object {
         private const val TAG = "AddRecipeActivity"

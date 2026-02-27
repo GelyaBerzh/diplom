@@ -15,12 +15,15 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.recepiesapp.databinding.ActivityMainBinding
 import java.util.Locale
 
+
+
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
     private lateinit var recipesAdapter: RecipesAdapter
     private lateinit var recipeRepository: RecipeRepository
     private var recipes: MutableList<Recipe> = mutableListOf()
+    private var currentCategoryFilter: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -47,6 +50,7 @@ class MainActivity : AppCompatActivity() {
         setupSearch()
         setupAddButton()
         setupSettings()
+        setupBottomPanel()
     }
 
     @Suppress("DEPRECATION")
@@ -88,16 +92,60 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun searchRecipes(query: String) {
-        val filteredRecipes = if (query.isEmpty()) {
-            recipes.toList() // Показать все рецепты, если строка пуста
-        } else {
-            recipes.filter { recipe ->
-                recipe.title.contains(query, ignoreCase = true) ||
+        val category = currentCategoryFilter
+        val filteredRecipes = recipes.filter { recipe ->
+            val matchesQuery =
+                query.isEmpty() ||
+                        recipe.title.contains(query, ignoreCase = true) ||
                         recipe.ingredients.any { it.contains(query, ignoreCase = true) } ||
                         recipe.tags.any { it.contains(query, ignoreCase = true) }
-            }
+
+            val matchesCategory = category == null ||
+                    (recipe.dishType?.contains(category, ignoreCase = true) == true)
+
+            matchesQuery && matchesCategory
         }
         recipesAdapter.submitList(filteredRecipes)
+    }
+
+    private fun setupBottomPanel() {
+        binding.btnAllRecipes.setOnClickListener {
+            currentCategoryFilter = null
+            binding.searchView.setQuery("", false)
+            searchRecipes("")
+        }
+
+        binding.btnDishSections.setOnClickListener {
+            showCategoryFilterDialog()
+        }
+
+
+    }
+
+    private fun showCategoryFilterDialog() {
+        val categories = arrayOf(
+            "Холодные закуски",
+            "Первые блюда",
+            "Горячие блюда",
+            "Домашние заготовки",
+            "Десерты",
+            "Напитки",
+            "Гарниры",
+            "Соусы",
+            "Выпечка"
+        )
+
+        val items = arrayOf("Все разделы") + categories
+
+        AlertDialog.Builder(this)
+            .setTitle("Разделы")
+            .setItems(items) { dialog, which ->
+                currentCategoryFilter = if (which == 0) null else categories[which - 1]
+                val currentQuery = binding.searchView.query?.toString() ?: ""
+                searchRecipes(currentQuery)
+                dialog.dismiss()
+            }
+            .show()
     }
 
     @Suppress("DEPRECATION")
@@ -203,8 +251,20 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun openRecipeDetails(recipe: Recipe) {
+        // Увеличиваем счётчик просмотров и сохраняем
+        val index = recipes.indexOfFirst { it.id == recipe.id }
+        val updatedRecipe = if (index >= 0) {
+            val incremented = recipes[index].copy(viewCount = recipes[index].viewCount + 1)
+            recipes[index] = incremented
+            recipeRepository.saveRecipes(recipes)
+            recipesAdapter.submitList(recipes.toList())
+            incremented
+        } else {
+            recipe.copy(viewCount = recipe.viewCount + 1)
+        }
+
         val intent = Intent(this, RecipeDetailActivity::class.java).apply {
-            putExtra("RECIPE", recipe)
+            putExtra("RECIPE", updatedRecipe)
         }
         startActivity(intent)
     }

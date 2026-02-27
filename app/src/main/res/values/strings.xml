@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name" translatable="false">Recipes App</string>
+    <string name="app_name" translatable="false">Счастье есть</string>
     <string name="unit_prompt">Выберите единицу измерения</string>
     <string name="searchText">Поиск по названию, ингредиентам или тегам</string>
     <string name="add_recipe">Добавить рецепт</string>
@@ -20,6 +20,24 @@
     <string name="instructions_label">Инструкции</string>
     <string name="tags_label">Теги</string>
     <string name="edit_recipe_title">Редактирование рецепта</string>
+    <string name="KBZHU">КБЖУ на порцию</string>
+    <string name="Cooking_Method_label">Способ приготовления</string>
+    <string name="tvDishType_label">Разделы</string>
+    <string name="cbDishCold">Холодные закуски</string>
+    <string name="cbDishFirst">Первые блюда</string>
+    <string name="cbDishHot">Горячие блюда</string>
+    <string name="cbDishPreserves">Домашние заготовки</string>
+    <string name="cbDishDessert">Десерты</string>
+    <string name="cbDishDrinks">Напитки</string>
+    <string name="cbDishSide">Гарниры</string>
+    <string name="cbDishSauces">Соусы</string>
+    <string name="cbDishBakery">Выпечка</string>
+    <string name="cbMethodPot">Кастрюля</string>
+    <string name="cbMethodPan">Cковорода</string>
+    <string name="cbMethodmulticooker">Мультиварка</string>
+    <string name="cbMethodOven">Духовка</string>
+    <string name="cbMethodGrill">Аэрогриль</string>
+    <string name="cbMethodblender">Блендер</string>
     <string name="edit">Редактировать</string>
     <string name="delete">Удалить</string>
     <string name="cancel">Отмена</string>
@@ -30,6 +48,8 @@
     <string name="delete_ingredient_button">Удалить ингредиент</string>
     <string name="settings">Настройки</string>
     <string name="close">Закрыть</string>
+    <string name="views_text">Просмотры: %1$d</string>
+    <string name="bottom_all_recipes">Все рецепты</string>
     <string-array name="languages_array">
         <item>Русский</item>
         <item>English</item>

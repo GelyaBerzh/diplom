@@ -189,11 +189,186 @@
 
             </com.google.android.material.textfield.TextInputLayout>
 
+            <!-- Секция: Раздел блюда и способ приготовления -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/tvDishType_label"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:textColor="@color/textPrimary"
+                android:paddingStart="20dp"
+                android:paddingEnd="20dp"
+                android:paddingTop="20dp"
+                android:paddingBottom="8dp" />
+
+            <androidx.constraintlayout.widget.ConstraintLayout
+                android:id="@+id/layoutDishType"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="16dp"
+                android:layout_marginEnd="16dp"
+                android:layout_marginTop="4dp">
+
+                <androidx.constraintlayout.helper.widget.Flow
+                    android:id="@+id/flowDishType"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    app:constraint_referenced_ids="cbDishCold,cbDishFirst,cbDishHot,cbDishPreserves,cbDishDessert,cbDishDrinks,cbDishSide,cbDishSauces,cbDishBakery"
+                    app:flow_wrapMode="chain"
+                    app:flow_horizontalGap="30dp"
+                    app:flow_verticalGap="4dp"
+                    app:flow_horizontalStyle="packed"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintTop_toTopOf="parent" />
+
+                <CheckBox
+                    android:id="@+id/cbDishCold"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/cbDishCold"
+                    android:textColor="@color/textPrimary" />
+
+                <CheckBox
+                    android:id="@+id/cbDishFirst"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/cbDishFirst"
+                    android:textColor="@color/textPrimary" />
+
+                <CheckBox
+                    android:id="@+id/cbDishHot"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/cbDishHot"
+                    android:textColor="@color/textPrimary" />
+
+                <CheckBox
+                    android:id="@+id/cbDishPreserves"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/cbDishPreserves"
+                    android:textColor="@color/textPrimary" />
+
+                <CheckBox
+                    android:id="@+id/cbDishDessert"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/cbDishDessert"
+                    android:textColor="@color/textPrimary" />
+
+                <CheckBox
+                    android:id="@+id/cbDishDrinks"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/cbDishDrinks"
+                    android:textColor="@color/textPrimary" />
+
+                <CheckBox
+                    android:id="@+id/cbDishSide"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/cbDishSide"
+                    android:textColor="@color/textPrimary"/>
+
+                <CheckBox
+                    android:id="@+id/cbDishSauces"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/cbDishSauces"
+                    android:textColor="@color/textPrimary"/>
+
+                <CheckBox
+                    android:id="@+id/cbDishBakery"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/cbDishBakery"
+                    android:textColor="@color/textPrimary"/>
+
+            </androidx.constraintlayout.widget.ConstraintLayout>
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/Cooking_Method_label"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:textColor="@color/textPrimary"
+                android:paddingStart="20dp"
+                android:paddingEnd="20dp"
+                android:paddingTop="20dp"
+                android:paddingBottom="8dp" />
+
+            <androidx.constraintlayout.widget.ConstraintLayout
+                android:id="@+id/layoutCookingMethod"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="16dp"
+                android:layout_marginEnd="16dp"
+                android:layout_marginTop="4dp">
+
+                <androidx.constraintlayout.helper.widget.Flow
+                    android:id="@+id/flowCookingMethod"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    app:constraint_referenced_ids="cbMethodPot,cbMethodPan,cbMethodmulticooker,cbMethodOven,cbMethodGrill,cbMethodblender"
+                    app:flow_wrapMode="chain"
+                    app:flow_horizontalGap="8dp"
+                    app:flow_verticalGap="4dp"
+                    app:flow_horizontalStyle="packed"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintTop_toTopOf="parent" />
+
+                <CheckBox
+                    android:id="@+id/cbMethodPot"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/cbMethodPot"
+                    android:textColor="@color/textPrimary" />
+
+                <CheckBox
+                    android:id="@+id/cbMethodPan"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/cbMethodPan"
+                    android:textColor="@color/textPrimary" />
+
+                <CheckBox
+                    android:id="@+id/cbMethodmulticooker"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/cbMethodmulticooker"
+                    android:textColor="@color/textPrimary" />
+
+                <CheckBox
+                    android:id="@+id/cbMethodOven"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/cbMethodOven"
+                    android:textColor="@color/textPrimary" />
+
+                <CheckBox
+                    android:id="@+id/cbMethodGrill"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/cbMethodGrill"
+                    android:textColor="@color/textPrimary" />
+
+                <CheckBox
+                    android:id="@+id/cbMethodblender"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/cbMethodblender"
+                    android:textColor="@color/textPrimary" />
+
+            </androidx.constraintlayout.widget.ConstraintLayout>
+
             <!-- Секция: Теги -->
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Теги"
+                android:text="@string/tags_label"
                 android:textSize="18sp"
                 android:textStyle="bold"
                 android:textColor="@color/textPrimary"

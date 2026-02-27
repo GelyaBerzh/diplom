@@ -37,23 +37,22 @@
 
                 <AutoCompleteTextView
                     android:id="@+id/etIngredient"
-                    android:layout_width="match_parent"
+                    android:layout_width="354dp"
                     android:layout_height="wrap_content"
-                    android:hint="@string/ingredient_hint"
                     android:completionThreshold="1"
+                    android:ellipsize="end"
+                    android:gravity="top|start"
+                    android:hint="@string/ingredient_hint"
                     android:inputType="textMultiLine"
                     android:maxLines="2"
-                    android:minLines="1"
-                    android:gravity="top|start"
-                    android:scrollHorizontally="false"
-                    android:ellipsize="end"
-                    android:textColor="@color/textPrimary"
-                    android:textColorHint="@color/secondaryAccent"
                     android:minHeight="86dp"
+                    android:minLines="1"
                     android:paddingStart="20dp"
-                    android:paddingEnd="20dp"
                     android:paddingTop="24dp"
-                    />
+                    android:paddingEnd="20dp"
+                    android:scrollHorizontally="false"
+                    android:textColor="@color/textPrimary"
+                    android:textColorHint="@color/secondaryAccent" />
 
             </com.google.android.material.textfield.TextInputLayout>
 

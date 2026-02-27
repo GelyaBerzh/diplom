@@ -40,6 +40,8 @@ class RecipesAdapter(
             binding.tvDescription.text = getDescriptionPreview(recipe.description)
             binding.tvServings.text =
                 binding.root.context.getString(R.string.servings_text, recipe.servings)
+            binding.tvViews.text =
+                binding.root.context.getString(R.string.views_text, recipe.viewCount)
             binding.tvTags.text =
                 recipe.tags.takeIf { it.isNotEmpty() }?.joinToString("  ") ?: ""
             binding.tvTags.isVisible = binding.tvTags.text.isNotBlank()

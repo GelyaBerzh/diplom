@@ -11,6 +11,7 @@ import android.widget.TextView
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.chip.Chip
 import com.google.android.material.chip.ChipGroup
 import com.google.android.material.imageview.ShapeableImageView
@@ -21,6 +22,11 @@ class RecipeDetailActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContentView(R.layout.activity_recipe_detail)
+
+        findViewById<MaterialToolbar>(R.id.toolbarRecipeDetail).apply {
+            setNavigationOnClickListener { finish() }
+        }
+
         findViewById<View>(R.id.recipeDetailRoot).applySystemBarsPadding()
 
         val recipe = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -54,10 +60,58 @@ class RecipeDetailActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.tvTitle).text = recipe.title
         findViewById<TextView>(R.id.tvServings).text =
             getString(R.string.servings_text, recipe.servings)
+
+        findViewById<TextView>(R.id.tvCalories).text =
+            "Калории: ${"%.0f".format(recipe.caloriesPerServing)} ккал"
+
+        findViewById<TextView>(R.id.tvProtein).text =
+            "Белки: ${"%.1f".format(recipe.proteinPerServing)} г"
+
+        findViewById<TextView>(R.id.tvFat).text =
+            "Жиры: ${"%.1f".format(recipe.fatPerServing)} г"
+
+        findViewById<TextView>(R.id.tvCarbs).text =
+            "Углеводы: ${"%.1f".format(recipe.carbsPerServing)} г"
         findViewById<TextView>(R.id.tvDescription).text =
             "${getString(R.string.recipe_description)}:\n${recipe.description}"
         findViewById<TextView>(R.id.tvInstructions).text =
             "${getString(R.string.instructions_label)}:\n${recipe.instructions}"
+
+        val cardMeta = findViewById<View>(R.id.cardMeta)
+        val dishTypeLabelView = findViewById<TextView>(R.id.labelDishType)
+        val dishTypeView = findViewById<TextView>(R.id.tvDishType)
+        val cookingMethodLabelView = findViewById<TextView>(R.id.labelCookingMethod)
+        val cookingMethodView = findViewById<TextView>(R.id.tvCookingMethod)
+        val viewsView = findViewById<TextView>(R.id.tvViews)
+
+        val hasDishType = !recipe.dishType.isNullOrBlank()
+        val hasCookingMethod = !recipe.cookingMethod.isNullOrBlank()
+
+        if (!hasDishType && !hasCookingMethod && recipe.viewCount == 0) {
+            cardMeta.visibility = View.GONE
+        } else {
+            cardMeta.visibility = View.VISIBLE
+
+            if (hasDishType) {
+                dishTypeLabelView.visibility = View.VISIBLE
+                dishTypeView.visibility = View.VISIBLE
+                dishTypeView.text = recipe.dishType
+            } else {
+                dishTypeLabelView.visibility = View.GONE
+                dishTypeView.visibility = View.GONE
+            }
+
+            if (hasCookingMethod) {
+                cookingMethodLabelView.visibility = View.VISIBLE
+                cookingMethodView.visibility = View.VISIBLE
+                cookingMethodView.text = recipe.cookingMethod
+            } else {
+                cookingMethodLabelView.visibility = View.GONE
+                cookingMethodView.visibility = View.GONE
+            }
+
+            viewsView.text = getString(R.string.views_text, recipe.viewCount)
+        }
     }
 
     private fun setupIngredients(ingredients: List<String>) {
