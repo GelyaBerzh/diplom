@@ -11,9 +11,12 @@ import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.SearchView
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.recepiesapp.databinding.ActivityMainBinding
 import java.util.Locale
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 
 
@@ -38,7 +41,6 @@ class MainActivity : AppCompatActivity() {
         binding.root.applySystemBarsPadding()
 
         recipeRepository = RecipeRepository(this)
-        recipes = recipeRepository.loadRecipes()
         recipesAdapter = RecipesAdapter(
             onItemClick = { openRecipeDetails(it) },
             getDescriptionPreview = ::getDescriptionPreview,
@@ -51,6 +53,13 @@ class MainActivity : AppCompatActivity() {
         setupAddButton()
         setupSettings()
         setupBottomPanel()
+
+        // Загрузка рецептов из Room (c миграцией из JSON при первом запуске)
+        lifecycleScope.launch {
+            val loaded = recipeRepository.loadRecipes()
+            recipes = loaded
+            recipesAdapter.submitList(recipes.toList())
+        }
     }
 
     @Suppress("DEPRECATION")
@@ -172,7 +181,9 @@ class MainActivity : AppCompatActivity() {
     fun addRecipe(newRecipe: Recipe) {
         recipes.add(newRecipe)
         recipesAdapter.submitList(recipes.toList())
-        recipeRepository.saveRecipes(recipes)
+        lifecycleScope.launch(Dispatchers.IO) {
+            recipeRepository.saveRecipes(recipes)
+        }
         Log.d("RecipesApp Add", "Рецепт добавлен и сохранён: $newRecipe")
     }
 
@@ -181,7 +192,9 @@ class MainActivity : AppCompatActivity() {
         if (index >= 0) {
             recipes[index] = updatedRecipe
             recipesAdapter.submitList(recipes.toList())
-            recipeRepository.saveRecipes(recipes)
+            lifecycleScope.launch(Dispatchers.IO) {
+                recipeRepository.saveRecipes(recipes)
+            }
             Log.d("RecipesApp Update", "Рецепт обновлён: $updatedRecipe")
         } else {
             addRecipe(updatedRecipe)
@@ -256,8 +269,10 @@ class MainActivity : AppCompatActivity() {
         val updatedRecipe = if (index >= 0) {
             val incremented = recipes[index].copy(viewCount = recipes[index].viewCount + 1)
             recipes[index] = incremented
-            recipeRepository.saveRecipes(recipes)
             recipesAdapter.submitList(recipes.toList())
+            lifecycleScope.launch(Dispatchers.IO) {
+                recipeRepository.saveRecipes(recipes)
+            }
             incremented
         } else {
             recipe.copy(viewCount = recipe.viewCount + 1)
@@ -289,7 +304,9 @@ class MainActivity : AppCompatActivity() {
         val removed = recipes.removeIf { it.id == recipe.id }
         if (removed) {
             recipesAdapter.submitList(recipes.toList())
-            recipeRepository.saveRecipes(recipes)
+            lifecycleScope.launch(Dispatchers.IO) {
+                recipeRepository.saveRecipes(recipes)
+            }
             Log.d("RecipesApp Delete", "Рецепт удалён: $recipe")
         }
     }
