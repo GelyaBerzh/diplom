@@ -13,16 +13,13 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.SearchView
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
-import com.example.recepiesapp.databinding.ActivityMainBinding
-import java.util.Locale
+import com.example.recepiesapp.databinding.ActivityFavoritesBinding
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
+class FavoritesActivity : AppCompatActivity() {
 
-
-class MainActivity : AppCompatActivity() {
-
-    private lateinit var binding: ActivityMainBinding
+    private lateinit var binding: ActivityFavoritesBinding
     private lateinit var recipesAdapter: RecipesAdapter
     private lateinit var recipeRepository: RecipeRepository
     private var recipes: MutableList<Recipe> = mutableListOf()
@@ -30,13 +27,8 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-//        enableEdgeToEdge()
-//        binding = ActivityMainBinding.inflate(layoutInflater)
-//        setContentView(binding.root)
-
-        setAppLanguage(getCurrentLanguage())
         enableEdgeToEdge()
-        binding = ActivityMainBinding.inflate(layoutInflater)
+        binding = ActivityFavoritesBinding.inflate(layoutInflater)
         setContentView(binding.root)
         binding.root.applySystemBarsPadding()
 
@@ -51,35 +43,28 @@ class MainActivity : AppCompatActivity() {
 
         setupRecyclerView()
         setupSearch()
-        setupAddButton()
         setupSettings()
         setupBottomPanel()
+        setupBack()
 
-        // Загрузка рецептов из Room (c миграцией из JSON при первом запуске)
         lifecycleScope.launch {
-            val loaded = recipeRepository.loadRecipes()
-            recipes = loaded
-            recipesAdapter.submitList(recipes.toList())
+            reload()
         }
     }
 
     override fun onResume() {
         super.onResume()
         lifecycleScope.launch {
-            val loaded = recipeRepository.loadRecipes()
-            recipes = loaded
-            val currentQuery = binding.searchView.query?.toString() ?: ""
-            searchRecipes(currentQuery)
+            reload()
         }
     }
 
-    @Suppress("DEPRECATION")
-    private fun setAppLanguage(language: String) {
-        val locale = Locale(language)
-        Locale.setDefault(locale)
-        val config = resources.configuration
-        config.setLocale(locale)
-        resources.updateConfiguration(config, resources.displayMetrics)
+    private suspend fun reload() {
+        val loaded = recipeRepository.loadFavoriteRecipes()
+        recipes = loaded
+        recipesAdapter.submitList(recipes.toList())
+        val currentQuery = binding.searchView.query?.toString() ?: ""
+        searchRecipes(currentQuery)
     }
 
     private fun setupRecyclerView() {
@@ -111,6 +96,37 @@ class MainActivity : AppCompatActivity() {
         binding.searchView.clearFocus()
     }
 
+    private fun setupBottomPanel() {
+        binding.btnAllFavorites.setOnClickListener {
+            currentCategoryFilter = null
+            binding.searchView.setQuery("", false)
+            searchRecipes("")
+        }
+        binding.btnDishSections.setOnClickListener {
+            showCategoryFilterDialog()
+        }
+    }
+
+    private fun setupBack() {
+        binding.btnBack.setOnClickListener { finish() }
+    }
+
+    private fun showCategoryFilterDialog() {
+        val categories = DishType.values()
+        val items = arrayOf(getString(R.string.sections_all)) +
+                categories.map { getString(it.titleRes) }.toTypedArray()
+
+        AlertDialog.Builder(this)
+            .setTitle(getString(R.string.sections_title))
+            .setItems(items) { dialog, which ->
+                currentCategoryFilter = if (which == 0) null else categories[which - 1]
+                val currentQuery = binding.searchView.query?.toString() ?: ""
+                searchRecipes(currentQuery)
+                dialog.dismiss()
+            }
+            .show()
+    }
+
     private fun searchRecipes(query: String) {
         val category = currentCategoryFilter
         val filteredRecipes = recipes.filter { recipe ->
@@ -133,48 +149,67 @@ class MainActivity : AppCompatActivity() {
         recipesAdapter.submitList(filteredRecipes)
     }
 
-    private fun setupBottomPanel() {
-        binding.btnAllRecipes.setOnClickListener {
-            currentCategoryFilter = null
-            binding.searchView.setQuery("", false)
-            searchRecipes("")
+    private fun toggleFavorite(recipe: Recipe) {
+        val index = recipes.indexOfFirst { it.id == recipe.id }
+        if (index < 0) return
+        val newValue = !recipes[index].isFavorite
+        recipes[index] = recipes[index].copy(isFavorite = newValue)
+
+        if (!newValue) {
+            recipes.removeIf { it.id == recipe.id }
         }
+        val currentQuery = binding.searchView.query?.toString() ?: ""
+        searchRecipes(currentQuery)
 
-        binding.btnDishSections.setOnClickListener {
-            showCategoryFilterDialog()
+        lifecycleScope.launch(Dispatchers.IO) {
+            recipeRepository.setFavorite(recipe.id, newValue)
         }
-
-        binding.btnFavorites.setOnClickListener {
-            openFavorites()
-        }
-
-
     }
 
-    private fun showCategoryFilterDialog() {
-        val categories = DishType.values()
-        val items = arrayOf(getString(R.string.sections_all)) +
-                categories.map { getString(it.titleRes) }.toTypedArray()
-
-        AlertDialog.Builder(this)
-            .setTitle(getString(R.string.sections_title))
-            .setItems(items) { dialog, which ->
-                currentCategoryFilter = if (which == 0) null else categories[which - 1]
-                val currentQuery = binding.searchView.query?.toString() ?: ""
-                searchRecipes(currentQuery)
-                dialog.dismiss()
-            }
-            .show()
+    private fun openRecipeDetails(recipe: Recipe) {
+        val intent = Intent(this, RecipeDetailActivity::class.java).apply {
+            putExtra("RECIPE", recipe)
+        }
+        startActivity(intent)
     }
 
     @Suppress("DEPRECATION")
-    private fun setupAddButton() {
-        binding.btnAddRecipe.setOnClickListener {
-            val intent = Intent(this, AddRecipeActivity::class.java)
-            startActivityForResult(intent, REQUEST_ADD_EDIT_RECIPE)
+    private fun editRecipe(recipe: Recipe) {
+        val intent = Intent(this, AddRecipeActivity::class.java).apply {
+            putExtra(AddRecipeActivity.EXTRA_RECIPE_TO_EDIT, recipe)
+        }
+        startActivityForResult(intent, REQUEST_ADD_EDIT_RECIPE)
+    }
+
+    private fun confirmDeleteRecipe(recipe: Recipe) {
+        AlertDialog.Builder(this)
+            .setTitle(getString(R.string.delete_recipe_title))
+            .setMessage(getString(R.string.delete_recipe_message, recipe.title))
+            .setPositiveButton(R.string.delete) { _, _ -> deleteRecipe(recipe) }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
+    }
+
+    private fun deleteRecipe(recipe: Recipe) {
+        val removed = recipes.removeIf { it.id == recipe.id }
+        if (removed) {
+            recipesAdapter.submitList(recipes.toList())
+            lifecycleScope.launch(Dispatchers.IO) {
+                recipeRepository.deleteRecipe(recipe.id)
+            }
+            Log.d("Favorites Delete", "Рецепт удалён: $recipe")
         }
     }
 
+    fun getDescriptionPreview(description: String): String {
+        return if (description.length > 200) {
+            description.substring(0, 200) + "..."
+        } else {
+            description
+        }
+    }
+
+    @Suppress("DEPRECATION")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode != REQUEST_ADD_EDIT_RECIPE || resultCode != RESULT_OK || data == null) return
@@ -188,37 +223,41 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    fun addRecipe(newRecipe: Recipe) {
+    private fun addRecipe(newRecipe: Recipe) {
+        if (!newRecipe.isFavorite) return
         recipes.add(newRecipe)
         recipesAdapter.submitList(recipes.toList())
         lifecycleScope.launch(Dispatchers.IO) {
             recipeRepository.upsertRecipe(newRecipe)
         }
-        Log.d("RecipesApp Add", "Рецепт добавлен и сохранён: $newRecipe")
     }
 
     private fun updateRecipe(updatedRecipe: Recipe) {
         val index = recipes.indexOfFirst { it.id == updatedRecipe.id }
-        if (index >= 0) {
-            recipes[index] = updatedRecipe
-            recipesAdapter.submitList(recipes.toList())
-            lifecycleScope.launch(Dispatchers.IO) {
-                recipeRepository.upsertRecipe(updatedRecipe)
+        if (updatedRecipe.isFavorite) {
+            if (index >= 0) {
+                recipes[index] = updatedRecipe
+            } else {
+                recipes.add(updatedRecipe)
             }
-            Log.d("RecipesApp Update", "Рецепт обновлён: $updatedRecipe")
         } else {
-            addRecipe(updatedRecipe)
+            if (index >= 0) recipes.removeAt(index)
         }
+        recipesAdapter.submitList(recipes.toList())
+        lifecycleScope.launch(Dispatchers.IO) {
+            recipeRepository.upsertRecipe(updatedRecipe)
+        }
+        val currentQuery = binding.searchView.query?.toString() ?: ""
+        searchRecipes(currentQuery)
     }
 
-    fun getDescriptionPreview(description: String): String {
-        return if (description.length > 200) {
-            description.substring(0, 200) + "..."
+    private fun Intent.getRecipeFromResult(key: String): Recipe? =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            getSerializableExtra(key, Recipe::class.java)
+        } else {
+            @Suppress("DEPRECATION")
+            getSerializableExtra(key) as? Recipe
         }
-        else {
-            description
-        }
-    }
 
     private fun setupSettings() {
         binding.ivSettings.setOnClickListener {
@@ -273,82 +312,8 @@ class MainActivity : AppCompatActivity() {
         return sharedPreferences.getString("language", "ru") ?: "ru"
     }
 
-    private fun openRecipeDetails(recipe: Recipe) {
-        // Увеличиваем счётчик просмотров и сохраняем
-        val index = recipes.indexOfFirst { it.id == recipe.id }
-        val updatedRecipe = if (index >= 0) {
-            val incremented = recipes[index].copy(viewCount = recipes[index].viewCount + 1)
-            recipes[index] = incremented
-            recipesAdapter.submitList(recipes.toList())
-            lifecycleScope.launch(Dispatchers.IO) {
-                recipeRepository.upsertRecipe(incremented)
-            }
-            incremented
-        } else {
-            recipe.copy(viewCount = recipe.viewCount + 1)
-        }
-
-        val intent = Intent(this, RecipeDetailActivity::class.java).apply {
-            putExtra("RECIPE", updatedRecipe)
-        }
-        startActivity(intent)
-    }
-
-    private fun editRecipe(recipe: Recipe) {
-        val intent = Intent(this, AddRecipeActivity::class.java).apply {
-            putExtra(AddRecipeActivity.EXTRA_RECIPE_TO_EDIT, recipe)
-        }
-        startActivityForResult(intent, REQUEST_ADD_EDIT_RECIPE)
-    }
-
-    private fun confirmDeleteRecipe(recipe: Recipe) {
-        AlertDialog.Builder(this)
-            .setTitle(getString(R.string.delete_recipe_title))
-            .setMessage(getString(R.string.delete_recipe_message, recipe.title))
-            .setPositiveButton(R.string.delete) { _, _ -> deleteRecipe(recipe) }
-            .setNegativeButton(R.string.cancel, null)
-            .show()
-    }
-
-    private fun deleteRecipe(recipe: Recipe) {
-        val removed = recipes.removeIf { it.id == recipe.id }
-        if (removed) {
-            recipesAdapter.submitList(recipes.toList())
-            lifecycleScope.launch(Dispatchers.IO) {
-                recipeRepository.deleteRecipe(recipe.id)
-            }
-            Log.d("RecipesApp Delete", "Рецепт удалён: $recipe")
-        }
-    }
-
-    private fun toggleFavorite(recipe: Recipe) {
-        val index = recipes.indexOfFirst { it.id == recipe.id }
-        if (index < 0) return
-        val newValue = !recipes[index].isFavorite
-        recipes[index] = recipes[index].copy(isFavorite = newValue)
-
-        val currentQuery = binding.searchView.query?.toString() ?: ""
-        searchRecipes(currentQuery)
-
-        lifecycleScope.launch(Dispatchers.IO) {
-            recipeRepository.setFavorite(recipe.id, newValue)
-        }
-    }
-
-    private fun openFavorites() {
-        val intent = Intent(this, FavoritesActivity::class.java)
-        startActivity(intent)
-        }
-
-    private fun Intent.getRecipeFromResult(key: String): Recipe? =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            getSerializableExtra(key, Recipe::class.java)
-        } else {
-            @Suppress("DEPRECATION")
-            getSerializableExtra(key) as? Recipe
-        }
-
     companion object {
         private const val REQUEST_ADD_EDIT_RECIPE = 1
     }
 }
+

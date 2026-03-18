@@ -17,5 +17,6 @@ data class Recipe(
     val proteinPerServing: Double = 0.0,
     val fatPerServing: Double = 0.0,
     val carbsPerServing: Double = 0.0,
-    val viewCount: Int = 0
+    val viewCount: Int = 0,
+    val isFavorite: Boolean = false
 ) : Serializable

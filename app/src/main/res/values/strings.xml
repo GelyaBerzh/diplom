@@ -22,7 +22,7 @@
     <string name="edit_recipe_title">Редактирование рецепта</string>
     <string name="KBZHU">КБЖУ на порцию</string>
     <string name="Cooking_Method_label">Способ приготовления</string>
-    <string name="tvDishType_label">Разделы</string>
+    <string name="tvDishType_label">Раздел</string>
     <string name="cbDishCold">Холодные закуски</string>
     <string name="cbDishFirst">Первые блюда</string>
     <string name="cbDishHot">Горячие блюда</string>
@@ -50,10 +50,15 @@
     <string name="close">Закрыть</string>
     <string name="views_text">Просмотры: %1$d</string>
     <string name="bottom_all_recipes">Все рецепты</string>
+    <string name="bottom_favorites">Избранное</string>
+    <string name="favorite">Избранное</string>
+    <string name="sections_title">Разделы</string>
+    <string name="sections_all">Все разделы</string>
     <string-array name="languages_array">
         <item>Русский</item>
         <item>English</item>
     </string-array>
     <string name="select_language_prompt">Выберите язык</string>
     <string name="terms_of_use">Правила пользования</string>
+    <string name="back">Назад</string>
 </resources>

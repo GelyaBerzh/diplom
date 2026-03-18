@@ -5,16 +5,20 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.view.View
+import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
 import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.chip.Chip
 import com.google.android.material.chip.ChipGroup
 import com.google.android.material.imageview.ShapeableImageView
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class RecipeDetailActivity : AppCompatActivity() {
 
@@ -29,12 +33,28 @@ class RecipeDetailActivity : AppCompatActivity() {
 
         findViewById<View>(R.id.recipeDetailRoot).applySystemBarsPadding()
 
-        val recipe = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        var recipe = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             intent.getSerializableExtra("RECIPE", Recipe::class.java)
         } else {
             @Suppress("DEPRECATION")
             intent.getSerializableExtra("RECIPE") as? Recipe
         } ?: return
+
+        val repository = RecipeRepository(this)
+        val favoriteButton = findViewById<ImageButton>(R.id.btnFavoriteDetail)
+        fun renderFavorite() {
+            favoriteButton.setImageResource(
+                if (recipe.isFavorite) R.drawable.ic_favorite_filled else R.drawable.ic_favorite_outline
+            )
+        }
+        renderFavorite()
+        favoriteButton.setOnClickListener {
+            recipe = recipe.copy(isFavorite = !recipe.isFavorite)
+            renderFavorite()
+            lifecycleScope.launch(Dispatchers.IO) {
+                repository.setFavorite(recipe.id, recipe.isFavorite)
+            }
+        }
 
         setupImage(recipe)
         setupTextBlocks(recipe)
@@ -72,10 +92,8 @@ class RecipeDetailActivity : AppCompatActivity() {
 
         findViewById<TextView>(R.id.tvCarbs).text =
             "Углеводы: ${"%.1f".format(recipe.carbsPerServing)} г"
-        findViewById<TextView>(R.id.tvDescription).text =
-            "${getString(R.string.recipe_description)}:\n${recipe.description}"
-        findViewById<TextView>(R.id.tvInstructions).text =
-            "${getString(R.string.instructions_label)}:\n${recipe.instructions}"
+        findViewById<TextView>(R.id.tvDescription).text = recipe.description
+        findViewById<TextView>(R.id.tvInstructions).text = recipe.instructions
 
         val cardMeta = findViewById<View>(R.id.cardMeta)
         val dishTypeLabelView = findViewById<TextView>(R.id.labelDishType)
@@ -84,7 +102,8 @@ class RecipeDetailActivity : AppCompatActivity() {
         val cookingMethodView = findViewById<TextView>(R.id.tvCookingMethod)
         val viewsView = findViewById<TextView>(R.id.tvViews)
 
-        val hasDishType = !recipe.dishType.isNullOrBlank()
+        val dishTypeText = formatDishTypes(recipe.dishType)
+        val hasDishType = !dishTypeText.isNullOrBlank()
         val hasCookingMethod = !recipe.cookingMethod.isNullOrBlank()
 
         if (!hasDishType && !hasCookingMethod && recipe.viewCount == 0) {
@@ -95,7 +114,7 @@ class RecipeDetailActivity : AppCompatActivity() {
             if (hasDishType) {
                 dishTypeLabelView.visibility = View.VISIBLE
                 dishTypeView.visibility = View.VISIBLE
-                dishTypeView.text = recipe.dishType
+                dishTypeView.text = dishTypeText
             } else {
                 dishTypeLabelView.visibility = View.GONE
                 dishTypeView.visibility = View.GONE
@@ -112,6 +131,21 @@ class RecipeDetailActivity : AppCompatActivity() {
 
             viewsView.text = getString(R.string.views_text, recipe.viewCount)
         }
+    }
+
+    private fun formatDishTypes(raw: String?): String? {
+        if (raw.isNullOrBlank()) return null
+        val ids = raw.split(",")
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+        if (ids.isEmpty()) return null
+
+        val localized = ids.mapNotNull { id ->
+            DishType.fromId(id)?.let { getString(it.titleRes) }
+        }
+
+        if (localized.isEmpty()) return null
+        return localized.joinToString(", ")
     }
 
     private fun setupIngredients(ingredients: List<String>) {

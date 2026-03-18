@@ -14,7 +14,8 @@ class RecipesAdapter(
     private val onItemClick: (Recipe) -> Unit,
     private val getDescriptionPreview: (String) -> String,
     private val onEditClick: (Recipe) -> Unit,
-    private val onDeleteClick: (Recipe) -> Unit
+    private val onDeleteClick: (Recipe) -> Unit,
+    private val onFavoriteClick: (Recipe) -> Unit
 ) : ListAdapter<Recipe, RecipesAdapter.RecipeViewHolder>(DiffCallback()) {
 
     class DiffCallback : DiffUtil.ItemCallback<Recipe>() {
@@ -29,7 +30,8 @@ class RecipesAdapter(
         private val binding: ItemRecipeBinding,
         private val getDescriptionPreview: (String) -> String,
         private val onEditClick: (Recipe) -> Unit,
-        private val onDeleteClick: (Recipe) -> Unit
+        private val onDeleteClick: (Recipe) -> Unit,
+        private val onFavoriteClick: (Recipe) -> Unit
     ) : RecyclerView.ViewHolder(binding.root) {
 
         private val placeholderPadding =
@@ -46,6 +48,10 @@ class RecipesAdapter(
                 recipe.tags.takeIf { it.isNotEmpty() }?.joinToString("  ") ?: ""
             binding.tvTags.isVisible = binding.tvTags.text.isNotBlank()
 
+            binding.btnFavorite.apply {
+                setImageResource(if (recipe.isFavorite) R.drawable.ic_favorite_filled else R.drawable.ic_favorite_outline)
+                setOnClickListener { onFavoriteClick(recipe) }
+            }
             binding.btnEdit.setOnClickListener { onEditClick(recipe) }
             binding.btnDelete.setOnClickListener { onDeleteClick(recipe) }
 
@@ -70,7 +76,7 @@ class RecipesAdapter(
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecipeViewHolder {
         val binding = ItemRecipeBinding.inflate(LayoutInflater.from(parent.context), parent, false)
-        return RecipeViewHolder(binding, getDescriptionPreview, onEditClick, onDeleteClick)
+        return RecipeViewHolder(binding, getDescriptionPreview, onEditClick, onDeleteClick, onFavoriteClick)
     }
 
     override fun onBindViewHolder(holder: RecipeViewHolder, position: Int) {

@@ -26,6 +26,7 @@
             android:launchMode="standard"
             android:configChanges="orientation|screenSize"/>
         <activity android:name=".TermsOfUseActivity"/>
+        <activity android:name=".FavoritesActivity" />
     </application>
 
 </manifest>

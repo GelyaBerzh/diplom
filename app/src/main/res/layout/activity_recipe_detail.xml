@@ -48,6 +48,18 @@
                     app:strokeColor="@color/primaryAccent"
                     app:strokeWidth="2dp" />
 
+                <ImageButton
+                    android:id="@+id/btnFavoriteDetail"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:layout_gravity="end|top"
+                    android:layout_marginTop="4dp"
+                    android:layout_marginEnd="4dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/favorite"
+                    android:src="@drawable/ic_favorite_outline"
+                    app:tint="@color/secondaryAccent" />
+
             </FrameLayout>
 
             <TextView
@@ -292,13 +304,28 @@
                         android:textSize="15sp"
                         android:textColor="@color/textPrimary" />
 
-                    <TextView
-                        android:id="@+id/tvViews"
-                        android:layout_width="match_parent"
+                    <LinearLayout
+                        android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
-                        android:textSize="13sp"
-                        android:textColor="@color/textPrimary" />
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <ImageView
+                            android:layout_width="18dp"
+                            android:layout_height="18dp"
+                            android:src="@drawable/ic_views"
+                            android:contentDescription="@string/views_text"
+                            app:tint="@color/textPrimary" />
+
+                        <TextView
+                            android:id="@+id/tvViews"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="6dp"
+                            android:textSize="13sp"
+                            android:textColor="@color/textPrimary" />
+                    </LinearLayout>
 
                 </LinearLayout>
 

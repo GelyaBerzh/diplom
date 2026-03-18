@@ -20,7 +20,8 @@ data class RecipeEntity(
     val proteinPerServing: Double,
     val fatPerServing: Double,
     val carbsPerServing: Double,
-    val viewCount: Int
+    val viewCount: Int,
+    val isFavorite: Boolean
 )
 
 fun RecipeEntity.toDomain(): Recipe =
@@ -39,7 +40,8 @@ fun RecipeEntity.toDomain(): Recipe =
         proteinPerServing = proteinPerServing,
         fatPerServing = fatPerServing,
         carbsPerServing = carbsPerServing,
-        viewCount = viewCount
+        viewCount = viewCount,
+        isFavorite = isFavorite
     )
 
 fun Recipe.toEntity(): RecipeEntity =
@@ -58,6 +60,7 @@ fun Recipe.toEntity(): RecipeEntity =
         proteinPerServing = proteinPerServing,
         fatPerServing = fatPerServing,
         carbsPerServing = carbsPerServing,
-        viewCount = viewCount
+        viewCount = viewCount,
+        isFavorite = isFavorite
     )
 
