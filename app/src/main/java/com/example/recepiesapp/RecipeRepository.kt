@@ -19,6 +19,8 @@ class RecipeRepository(private val context: Context) {
     private val recipeIngredientDao = database.recipeIngredientDao()
     private val recipeTagDao = database.recipeTagDao()
     private val ingredientNutritionDao = database.ingredientNutritionDao()
+    private val cookingMethodDao = database.cookingMethodDao()
+    private val recipeCookingMethodDao = database.recipeCookingMethodDao()
 
     private val file: File
         get() = File(context.filesDir, fileName)
@@ -31,15 +33,16 @@ class RecipeRepository(private val context: Context) {
         return@withContext try {
             ensureDefaultCategories()
             ensureDefaultNutritionSeeded()
+            ensureDefaultCookingMethods()
             val dbRecipes = recipeDao.getAll()
             if (dbRecipes.isNotEmpty()) {
                 dbRecipes
-                    .map { it.toDomain().withNormalizedDishType() }
+                    .map { it.toDomain().withNormalizedDishType().withNormalizedCookingMethod() }
                     .toMutableList()
             } else {
                 // Миграция из файла, если БД пустая
                 val legacyRecipes = loadRecipesFromFile()
-                    .map { it.withNormalizedDishType() }
+                    .map { it.withNormalizedDishType().withNormalizedCookingMethod() }
                     .toMutableList()
                 if (legacyRecipes.isNotEmpty()) {
                     recipeDao.insertAll(legacyRecipes.map { it.toEntity() })
@@ -93,8 +96,9 @@ class RecipeRepository(private val context: Context) {
     suspend fun loadFavoriteRecipes(): MutableList<Recipe> = withContext(Dispatchers.IO) {
         return@withContext try {
             ensureDefaultNutritionSeeded()
+            ensureDefaultCookingMethods()
             recipeDao.getFavorites()
-                .map { it.toDomain().withNormalizedDishType() }
+                .map { it.toDomain().withNormalizedDishType().withNormalizedCookingMethod() }
                 .toMutableList()
         } catch (e: Exception) {
             e.printStackTrace()
@@ -121,12 +125,19 @@ class RecipeRepository(private val context: Context) {
         }
     }
 
+    private suspend fun ensureDefaultCookingMethods() {
+        val items = CookingMethod.values().map { CookingMethodEntity(id = it.id) }
+        cookingMethodDao.insertAll(items)
+    }
+
     private suspend fun syncNormalizedTables(recipes: List<Recipe>) {
         ensureDefaultCategories()
+        ensureDefaultCookingMethods()
         recipes.forEach { recipe ->
             // Рецепт — источник связей. Пересобираем связи для актуального состояния.
             recipeIngredientDao.deleteForRecipe(recipe.id)
             recipeTagDao.deleteForRecipe(recipe.id)
+            recipeCookingMethodDao.deleteForRecipe(recipe.id)
 
             val ingredientLinks = recipe.ingredients.mapNotNull { raw ->
                 val parsed = parseIngredientParts(raw)
@@ -145,6 +156,16 @@ class RecipeRepository(private val context: Context) {
             }
             if (tagLinks.isNotEmpty()) {
                 recipeTagDao.insertAll(tagLinks)
+            }
+
+            val methodIds = recipe.cookingMethod
+                ?.split(",")
+                ?.map { it.trim() }
+                ?.filter { it.isNotEmpty() }
+                ?: emptyList()
+            if (methodIds.isNotEmpty()) {
+                val links = methodIds.map { RecipeCookingMethodEntity(recipeId = recipe.id, methodId = it) }
+                recipeCookingMethodDao.insertAll(links)
             }
         }
     }
@@ -185,12 +206,8 @@ class RecipeRepository(private val context: Context) {
     }
 
     private suspend fun ensureDefaultNutritionSeeded() {
-        // Сидим справочник КБЖУ на 100г в БД (при необходимости).
         val defaults = defaultNutrition()
-        val existingCount = defaults.count { (name, _) ->
-            ingredientNutritionDao.findByName(name) != null
-        }
-        if (existingCount == defaults.size) return
+        if (ingredientNutritionDao.count() >= defaults.size) return
 
         val items = defaults.map { (name, n) ->
             IngredientNutritionEntity(
@@ -204,20 +221,29 @@ class RecipeRepository(private val context: Context) {
         ingredientNutritionDao.insertAll(items)
     }
 
-    private fun defaultNutrition(): Map<String, Nutrition> = mapOf(
-        "яблоко" to Nutrition(52.0, 0.3, 0.2, 13.8),
-        "груша" to Nutrition(57.0, 0.4, 0.1, 15.2),
-        "банан" to Nutrition(89.0, 1.1, 0.3, 22.8),
-        "апельсин" to Nutrition(47.0, 0.9, 0.1, 11.8),
-        "мандарин" to Nutrition(53.0, 0.8, 0.2, 13.3),
-        "грейпфрут" to Nutrition(42.0, 0.7, 0.1, 10.7),
-        "лимон" to Nutrition(29.0, 1.1, 0.3, 9.3),
-        "лайм" to Nutrition(30.0, 0.7, 0.2, 10.5),
-        "киви" to Nutrition(61.0, 1.1, 0.5, 14.6),
-        "ананас" to Nutrition(50.0, 0.5, 0.1, 13.1),
-        "манго" to Nutrition(60.0, 0.8, 0.4, 15.0),
-        "папайя" to Nutrition(43.0, 0.5, 0.3, 10.8),
-    )
+    /**
+     * Сид для БД: полный справочник из [ingredientNutritionSeedMap] плюс короткие имена
+     * из автодополнения (мука, яйца, лук…), чтобы совпадали с вводом пользователя.
+     */
+    private fun defaultNutrition(): Map<String, Nutrition> {
+        val base = ingredientNutritionSeedMap()
+        return base + nutritionAliasesFromSeed(base)
+    }
+
+    private fun nutritionAliasesFromSeed(base: Map<String, Nutrition>): Map<String, Nutrition> {
+        fun ref(key: String, fallback: Nutrition): Nutrition = base[key] ?: fallback
+        return mapOf(
+            "мука" to ref("мука пшеничная в/с", Nutrition(342.0, 10.3, 1.1, 70.0)),
+            "яйца" to ref("яйцо куриное (вареное)", Nutrition(155.0, 12.6, 10.6, 1.1)),
+            "яйцо" to ref("яйцо куриное (вареное)", Nutrition(155.0, 12.6, 10.6, 1.1)),
+            "лук" to ref("лук репчатый", Nutrition(40.0, 1.1, 0.1, 9.3)),
+            "помидоры" to ref("помидор", Nutrition(18.0, 0.9, 0.2, 3.9)),
+            "капуста" to ref("капуста белокочанная", Nutrition(25.0, 1.3, 0.1, 5.8)),
+            "молоко" to ref("молоко 2.5%", Nutrition(52.0, 2.8, 2.5, 4.7)),
+            "масло" to ref("масло подсолнечное", Nutrition(884.0, 0.0, 100.0, 0.0)),
+            "соль" to Nutrition(0.0, 0.0, 0.0, 0.0),
+        )
+    }
 
     suspend fun calculateRecipeNutritionFromDb(
         ingredients: List<IngredientAmount>,
@@ -277,6 +303,11 @@ class RecipeRepository(private val context: Context) {
         return copy(dishType = normalized)
     }
 
+    private fun Recipe.withNormalizedCookingMethod(): Recipe {
+        val normalized = normalizeCookingMethod(cookingMethod)
+        return copy(cookingMethod = normalized)
+    }
+
     private fun normalizeDishType(raw: String?): String? {
         if (raw.isNullOrBlank()) return null
         val parts = raw.split(",")
@@ -305,6 +336,39 @@ class RecipeRepository(private val context: Context) {
                 "гарниры", "side dishes" -> DishType.SIDE.id
                 "соусы", "sauces" -> DishType.SAUCES.id
                 "выпечка", "bakery" -> DishType.BAKERY.id
+                else -> null
+            }
+        }.distinct()
+
+        if (ids.isEmpty()) return null
+        return ids.joinToString(",")
+    }
+
+    private fun normalizeCookingMethod(raw: String?): String? {
+        if (raw.isNullOrBlank()) return null
+        val parts = raw.split(",")
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+        if (parts.isEmpty()) return null
+
+        // Уже id (pot, pan, ...)
+        val asIds = parts.mapNotNull { part ->
+            CookingMethod.fromId(part)?.id
+        }
+        if (asIds.size == parts.size) {
+            return asIds.distinct().joinToString(",")
+        }
+
+        // Иначе считаем, что это локализованный текст из чекбоксов
+        val ids = parts.mapNotNull { name ->
+            val lower = name.lowercase()
+            when (lower) {
+                "кастрюля", "pot" -> CookingMethod.POT.id
+                "cковорода", "сковорода", "pan" -> CookingMethod.PAN.id
+                "мультиварка", "multicooker" -> CookingMethod.MULTICOOKER.id
+                "духовка", "oven" -> CookingMethod.OVEN.id
+                "аэрогриль", "air fryer", "grill" -> CookingMethod.GRILL.id
+                "блендер", "blender" -> CookingMethod.BLENDER.id
                 else -> null
             }
         }.distinct()

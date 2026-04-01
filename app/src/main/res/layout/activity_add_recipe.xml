@@ -9,6 +9,7 @@
     tools:context=".AddRecipeActivity">
 
     <com.google.android.material.appbar.AppBarLayout
+        android:id="@+id/appBarAddRecipe"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:theme="@style/ThemeOverlay.AppCompat.Dark.ActionBar"
@@ -19,7 +20,7 @@
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
             android:background="@color/primaryAccent"
-            app:title="Создание рецепта"
+            app:title="@string/add_recipe_title"
             app:titleTextColor="@color/white"
             app:navigationIcon="?attr/homeAsUpIndicator"
             app:navigationIconTint="@color/white" />
@@ -420,7 +421,7 @@
                 android:layout_marginStart="16dp"
                 android:layout_marginEnd="16dp"
                 android:layout_marginTop="8dp"
-                app:backgroundTint="@color/secondaryAccent"
+                app:backgroundTint="@color/primaryAccent"
                 app:cornerRadius="8dp" />
 
             <!-- Секция: Ингредиенты -->
@@ -440,7 +441,7 @@
                 android:id="@+id/ingredientsLayout"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:columnCount="2"
+                android:columnCount="1"
                 android:alignmentMode="alignMargins"
                 android:useDefaultMargins="false"
                 android:paddingStart="8dp"
@@ -457,9 +458,7 @@
                 android:layout_marginStart="16dp"
                 android:layout_marginEnd="16dp"
                 app:backgroundTint="@color/primaryAccent"
-                app:cornerRadius="8dp"
-                app:icon="@android:drawable/ic_input_add"
-                app:iconTint="@color/white" />
+                app:cornerRadius="8dp" />
 
             <!-- Кнопка сохранения -->
             <com.google.android.material.button.MaterialButton

@@ -83,22 +83,38 @@
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnAllFavorites"
+                style="@style/Widget.Material3.Button.OutlinedButton"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="@string/bottom_favorites"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:textColor="@color/white"
+                app:icon="@drawable/ic_favorite_filled"
+                app:iconTint="@color/white"
+                app:iconGravity="textTop"
+                app:iconPadding="4dp"
                 app:backgroundTint="@color/primaryAccent"
-                app:cornerRadius="12dp" />
+                app:cornerRadius="16dp"/>
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnDishSections"
+                style="@style/Widget.Material3.Button.OutlinedButton"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="8dp"
                 android:layout_weight="1"
-                android:text="@string/tvDishType_label"
-                app:backgroundTint="@color/secondaryAccent"
-                app:cornerRadius="12dp" />
+                android:text="@string/filters_title"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:textColor="@color/white"
+                app:icon="@android:drawable/ic_menu_sort_by_size"
+                app:iconTint="@color/white"
+                app:iconGravity="textTop"
+                app:iconPadding="4dp"
+                app:backgroundTint="@color/primaryAccent"
+                app:cornerRadius="16dp"/>
 
         </LinearLayout>
 

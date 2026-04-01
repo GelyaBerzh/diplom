@@ -20,10 +20,11 @@
     <string name="instructions_label">Instructions</string>
     <string name="tags_label">Tags</string>
     <string name="edit_recipe_title">Editing a recipe</string>
+    <string name="add_recipe_title">Recipe creating</string>
     <string name="edit">Edit</string>
     <string name="Cooking_Method_label">Cooking method</string>
     <string name="KBZHU">Nutritional value per serving</string>
-    <string name="tvDishType_label">Dish section</string>
+    <string name="tvDishType_label">Sections</string>
     <string name="cbDishCold">Cold dishes</string>
     <string name="cbDishFirst">First courses</string>
     <string name="cbDishHot">Hot dishes</string>
@@ -45,8 +46,8 @@
     <string name="delete_recipe_message">Delete recipe \"%1$s\"?</string>
     <string name="ingredient_hint">Ingredient</string>
     <string name="count_hint">Qnty</string>
-    <string name="bottom_all_recipes">All recipe</string>
-    <string name="bottom_favorites">Favorites</string>
+    <string name="bottom_all_recipes">All recipes</string>
+    <string name="bottom_favorites">All favorites</string>
     <string name="favorite">Favorite</string>
     <string name="delete_ingredient_button">Remove an ingredient</string>
     <string name="views_text">Views: %1$d</string>
@@ -54,7 +55,19 @@
     <string name="close">Close</string>
     <string name="select_language_prompt">Select a language</string>
     <string name="terms_of_use">Terms of use</string>
-    <string name="sections_title">Sections</string>
     <string name="sections_all">All sections</string>
+    <string name="filters_title">Filters</string>
+    <string name="filter_all_methods">All methods</string>
+    <string name="apply">Apply</string>
+    <string-array name="units_array">
+        <item>g</item>
+        <item>kg</item>
+        <item>ml</item>
+        <item>l</item>
+        <item>tsp</item>
+        <item>tbsp</item>
+        <item>pinch</item>
+        <item>pcs</item>
+    </string-array>
     <string name="back">Back</string>
 </resources>

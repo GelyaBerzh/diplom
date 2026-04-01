@@ -24,6 +24,7 @@ class FavoritesActivity : AppCompatActivity() {
     private lateinit var recipeRepository: RecipeRepository
     private var recipes: MutableList<Recipe> = mutableListOf()
     private var currentCategoryFilter: DishType? = null
+    private var currentCookingMethodFilter: CookingMethod? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -99,11 +100,12 @@ class FavoritesActivity : AppCompatActivity() {
     private fun setupBottomPanel() {
         binding.btnAllFavorites.setOnClickListener {
             currentCategoryFilter = null
+            currentCookingMethodFilter = null
             binding.searchView.setQuery("", false)
             searchRecipes("")
         }
         binding.btnDishSections.setOnClickListener {
-            showCategoryFilterDialog()
+            showFiltersDialog()
         }
     }
 
@@ -111,24 +113,58 @@ class FavoritesActivity : AppCompatActivity() {
         binding.btnBack.setOnClickListener { finish() }
     }
 
-    private fun showCategoryFilterDialog() {
-        val categories = DishType.values()
-        val items = arrayOf(getString(R.string.sections_all)) +
-                categories.map { getString(it.titleRes) }.toTypedArray()
+    private fun showFiltersDialog() {
+        val dialogView = layoutInflater.inflate(R.layout.dialog_filters, null)
+        val spSection = dialogView.findViewById<Spinner>(R.id.spDishSection)
+        val spMethod = dialogView.findViewById<Spinner>(R.id.spCookingMethod)
+
+        val sections = listOf<String?>(null) + DishType.values().map { it.id }
+        val sectionLabels = listOf(getString(R.string.sections_all)) +
+                DishType.values().map { getString(it.titleRes) }
+
+        val methods = listOf<String?>(null) + CookingMethod.values().map { it.id }
+        val methodLabels = listOf(getString(R.string.filter_all_methods)) +
+                CookingMethod.values().map { getString(it.titleRes) }
+
+        spSection.adapter = android.widget.ArrayAdapter(
+            this,
+            android.R.layout.simple_spinner_dropdown_item,
+            sectionLabels
+        )
+        spMethod.adapter = android.widget.ArrayAdapter(
+            this,
+            android.R.layout.simple_spinner_dropdown_item,
+            methodLabels
+        )
+
+        val currentSectionIndex =
+            sections.indexOf(currentCategoryFilter?.id).takeIf { it >= 0 } ?: 0
+        val currentMethodIndex =
+            methods.indexOf(currentCookingMethodFilter?.id).takeIf { it >= 0 } ?: 0
+        spSection.setSelection(currentSectionIndex)
+        spMethod.setSelection(currentMethodIndex)
 
         AlertDialog.Builder(this)
-            .setTitle(getString(R.string.sections_title))
-            .setItems(items) { dialog, which ->
-                currentCategoryFilter = if (which == 0) null else categories[which - 1]
+            .setTitle(getString(R.string.filters_title))
+            .setView(dialogView)
+            .setPositiveButton(R.string.apply) { dialog, _ ->
+                val selectedSectionId = sections[spSection.selectedItemPosition]
+                val selectedMethodId = methods[spMethod.selectedItemPosition]
+
+                currentCategoryFilter = selectedSectionId?.let { DishType.fromId(it) }
+                currentCookingMethodFilter = selectedMethodId?.let { CookingMethod.fromId(it) }
+
                 val currentQuery = binding.searchView.query?.toString() ?: ""
                 searchRecipes(currentQuery)
                 dialog.dismiss()
             }
+            .setNegativeButton(R.string.cancel, null)
             .show()
     }
 
     private fun searchRecipes(query: String) {
         val category = currentCategoryFilter
+        val method = currentCookingMethodFilter
         val filteredRecipes = recipes.filter { recipe ->
             val matchesQuery =
                 query.isEmpty() ||
@@ -144,7 +180,15 @@ class FavoritesActivity : AppCompatActivity() {
                 ids.contains(category.id)
             }
 
-            matchesQuery && matchesCategory
+            val matchesMethod = method == null || run {
+                val ids = recipe.cookingMethod
+                    ?.split(",")
+                    ?.map { it.trim() }
+                    ?: emptyList()
+                ids.contains(method.id)
+            }
+
+            matchesQuery && matchesCategory && matchesMethod
         }
         recipesAdapter.submitList(filteredRecipes)
     }

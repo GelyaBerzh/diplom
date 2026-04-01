@@ -27,11 +27,19 @@ class RecipeDetailActivity : AppCompatActivity() {
         enableEdgeToEdge()
         setContentView(R.layout.activity_recipe_detail)
 
+        // На экране просмотра статус-бар пусть совпадает с общим фоном экрана.
+        window.statusBarColor = ContextCompat.getColor(this, R.color.background)
+
         findViewById<MaterialToolbar>(R.id.toolbarRecipeDetail).apply {
+            // Только верхний inset для toolbar, чтобы не залезать под статус-бар/шторку.
+            applySystemBarsPadding(
+                applyLeft = false,
+                applyRight = false,
+                applyBottom = false,
+                includeIme = false
+            )
             setNavigationOnClickListener { finish() }
         }
-
-        findViewById<View>(R.id.recipeDetailRoot).applySystemBarsPadding()
 
         var recipe = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             intent.getSerializableExtra("RECIPE", Recipe::class.java)
@@ -104,7 +112,8 @@ class RecipeDetailActivity : AppCompatActivity() {
 
         val dishTypeText = formatDishTypes(recipe.dishType)
         val hasDishType = !dishTypeText.isNullOrBlank()
-        val hasCookingMethod = !recipe.cookingMethod.isNullOrBlank()
+        val cookingMethodText = formatCookingMethods(recipe.cookingMethod)
+        val hasCookingMethod = !cookingMethodText.isNullOrBlank()
 
         if (!hasDishType && !hasCookingMethod && recipe.viewCount == 0) {
             cardMeta.visibility = View.GONE
@@ -123,7 +132,7 @@ class RecipeDetailActivity : AppCompatActivity() {
             if (hasCookingMethod) {
                 cookingMethodLabelView.visibility = View.VISIBLE
                 cookingMethodView.visibility = View.VISIBLE
-                cookingMethodView.text = recipe.cookingMethod
+                cookingMethodView.text = cookingMethodText
             } else {
                 cookingMethodLabelView.visibility = View.GONE
                 cookingMethodView.visibility = View.GONE
@@ -142,6 +151,21 @@ class RecipeDetailActivity : AppCompatActivity() {
 
         val localized = ids.mapNotNull { id ->
             DishType.fromId(id)?.let { getString(it.titleRes) }
+        }
+
+        if (localized.isEmpty()) return null
+        return localized.joinToString(", ")
+    }
+
+    private fun formatCookingMethods(raw: String?): String? {
+        if (raw.isNullOrBlank()) return null
+        val ids = raw.split(",")
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+        if (ids.isEmpty()) return null
+
+        val localized = ids.mapNotNull { id ->
+            CookingMethod.fromId(id)?.let { getString(it.titleRes) }
         }
 
         if (localized.isEmpty()) return null
@@ -167,12 +191,31 @@ class RecipeDetailActivity : AppCompatActivity() {
     private fun parseIngredient(raw: String): Pair<String, String> {
         val parts = raw.trim().split("\\s+".toRegex())
         return if (parts.size >= 3) {
-            val amount = parts.takeLast(2).joinToString(" ")
+            val quantity = parts[parts.size - 2]
+            val unit = localizeUnit(parts.last())
+            val amount = "$quantity $unit"
             val name = parts.dropLast(2).joinToString(" ")
             name to amount
         } else {
             raw to ""
         }
+    }
+
+    private fun localizeUnit(rawUnit: String): String {
+        val unitIndexByAlias = mapOf(
+            "г" to 0, "g" to 0,
+            "кг" to 1, "kg" to 1,
+            "мл" to 2, "ml" to 2,
+            "л" to 3, "l" to 3,
+            "ч.л." to 4, "tsp" to 4,
+            "ст.л." to 5, "tbsp" to 5,
+            "щепотка" to 6, "pinch" to 6,
+            "шт" to 7, "pcs" to 7, "pc" to 7
+        )
+
+        val idx = unitIndexByAlias[rawUnit.trim().lowercase()] ?: return rawUnit
+        val localizedUnits = resources.getStringArray(R.array.units_array)
+        return localizedUnits.getOrNull(idx) ?: rawUnit
     }
 
     private fun setupTags(tags: List<String>) {
@@ -190,7 +233,7 @@ class RecipeDetailActivity : AppCompatActivity() {
         chipGroup.visibility = View.VISIBLE
 
         val chipColor =
-            ColorStateList.valueOf(ContextCompat.getColor(this, R.color.secondaryAccent))
+            ColorStateList.valueOf(ContextCompat.getColor(this, R.color.primaryAccent))
         val textColor = ContextCompat.getColor(this, android.R.color.white)
         val cornerRadius = resources.getDimension(R.dimen.chip_pill_radius)
 

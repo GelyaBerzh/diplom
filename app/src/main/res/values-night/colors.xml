@@ -7,4 +7,5 @@
     <color name="textPrimary">#F0EAD6</color> <!-- Светло-бежевый -->
 <!--    <color name="errorColor">#8B0000</color> &lt;!&ndash; Тусклый бордовый &ndash;&gt;-->
     <color name="cardBackground">#3E3A3A</color> <!-- Слегка затемненный -->
+    <color name="dropdownBackground">#2F2F2F</color>
 </resources>

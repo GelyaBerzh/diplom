@@ -25,12 +25,37 @@
         android:textSize="18sp"
         android:layout_marginBottom="16dp"/>
 
-    <Spinner
-        android:id="@+id/spLanguage"
+<!--    <Spinner-->
+<!--        android:id="@+id/spLanguage"-->
+<!--        android:layout_width="match_parent"-->
+<!--        android:layout_height="wrap_content"-->
+<!--        android:entries="@array/languages_array"-->
+<!--        android:prompt="@string/select_language_prompt"/>-->
+
+    <FrameLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:entries="@array/languages_array"
-        android:prompt="@string/select_language_prompt"/>
+        android:layout_height="wrap_content">
+
+        <Spinner
+            android:id="@+id/spLanguage"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="56dp"
+            android:entries="@array/languages_array"
+            android:prompt="@string/select_language_prompt"
+            android:background="@drawable/spinner_background"
+            android:paddingStart="12dp"
+            android:paddingEnd="36dp"
+            android:textColor="@color/textPrimary" />
+
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_gravity="end|center_vertical"
+            android:layout_marginEnd="12dp"
+            android:src="@drawable/ic_arrow_down"
+            android:importantForAccessibility="no" />
+    </FrameLayout>
 
     <Button
         android:id="@+id/btnTermsOfUse"

@@ -7,6 +7,9 @@ import androidx.room.Query
 
 @Dao
 interface IngredientNutritionDao {
+    @Query("SELECT COUNT(*) FROM ingredient_nutrition")
+    suspend fun count(): Int
+
     @Query("SELECT * FROM ingredient_nutrition WHERE name = :name LIMIT 1")
     suspend fun findByName(name: String): IngredientNutritionEntity?
 

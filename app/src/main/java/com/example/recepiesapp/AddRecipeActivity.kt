@@ -20,7 +20,9 @@ import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
+import com.google.android.material.appbar.AppBarLayout
 import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.chip.Chip
@@ -49,6 +51,7 @@ class AddRecipeActivity : AppCompatActivity() {
     private lateinit var dishTypeCheckboxes: List<CheckBox>
     private lateinit var dishTypeMap: Map<Int, DishType>
     private lateinit var cookingMethodCheckboxes: List<CheckBox>
+    private lateinit var cookingMethodMap: Map<Int, CookingMethod>
     private var focusedView: View? = null
     private val placeholderTag = "ingredient_placeholder"
     private var selectedImageUri: Uri? = null
@@ -71,15 +74,26 @@ class AddRecipeActivity : AppCompatActivity() {
         enableEdgeToEdge()
         setContentView(R.layout.activity_add_recipe)
 
+        // Фиксируем цвет status bar, чтобы при IME/Insets не "подмешивался" фон экрана.
+        window.statusBarColor = ContextCompat.getColor(this, R.color.primaryAccent)
+
         // Настройка Toolbar
         val toolbar = findViewById<MaterialToolbar>(R.id.toolbar)
+        // Только верхний системный inset для AppBar (без IME), чтобы toolbar не залезал под шторку.
+        findViewById<AppBarLayout>(R.id.appBarAddRecipe).applySystemBarsPadding(
+            applyLeft = false,
+            applyRight = false,
+            applyBottom = false,
+            includeIme = false
+        )
         setSupportActionBar(toolbar)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
         supportActionBar?.setDisplayShowHomeEnabled(true)
         toolbar.setNavigationOnClickListener { finish() }
 
         scrollView = findViewById(R.id.addRecipeRoot)
-        scrollView.applySystemBarsPadding(onInsetsChanged = { maybeScrollFocusedView() })
+        // Верхний inset отдаём AppBarLayout, а ScrollView пусть реагирует на IME снизу.
+        scrollView.applySystemBarsPadding(applyTop = false, includeIme = true, onInsetsChanged = { maybeScrollFocusedView() })
 
         imagePlaceholderPadding = resources.getDimensionPixelSize(R.dimen.recipe_image_placeholder_padding)
         ivRecipeImage = findViewById(R.id.ivRecipeImage)
@@ -128,6 +142,14 @@ class AddRecipeActivity : AppCompatActivity() {
             findViewById(R.id.cbMethodGrill),
             findViewById(R.id.cbMethodblender)
         )
+        cookingMethodMap = mapOf(
+            R.id.cbMethodPot to CookingMethod.POT,
+            R.id.cbMethodPan to CookingMethod.PAN,
+            R.id.cbMethodmulticooker to CookingMethod.MULTICOOKER,
+            R.id.cbMethodOven to CookingMethod.OVEN,
+            R.id.cbMethodGrill to CookingMethod.GRILL,
+            R.id.cbMethodblender to CookingMethod.BLENDER
+        )
 
         listOf<View>(
             findViewById<TextInputEditText>(R.id.etTitle),
@@ -144,9 +166,7 @@ class AddRecipeActivity : AppCompatActivity() {
         ingredientsLayout = findViewById(R.id.ingredientsLayout)
         ingredientsList = INGREDIENT_SUGGESTIONS
 
-        units = listOf(
-            "г", "кг", "мл", "л", "ч.л.", "ст.л.", "щепотка", "шт"
-        )
+        units = resources.getStringArray(R.array.units_array).toList()
 
         ingredientAdapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, ingredientsList)
 
@@ -229,9 +249,10 @@ class AddRecipeActivity : AppCompatActivity() {
             .mapNotNull { dishTypeMap[it.id]?.id }
         val dishType = selectedDishTypeIds.joinToString(",")
 
-        val cookingMethod = cookingMethodCheckboxes
+        val selectedCookingMethodIds = cookingMethodCheckboxes
             .filter { it.isChecked }
-            .joinToString(", ") { it.text.toString() }
+            .mapNotNull { cookingMethodMap[it.id]?.id }
+        val cookingMethod = selectedCookingMethodIds.joinToString(",")
 
         // Строки ингредиентов для отображения и хранения
         val ingredientsStrings = ingredientsFields.mapNotNull { (ingredient, quantity, unit) ->
@@ -371,32 +392,14 @@ class AddRecipeActivity : AppCompatActivity() {
 
     private fun createGridChildLayoutParams(): GridLayout.LayoutParams =
         GridLayout.LayoutParams().apply {
-            width = 0
+            width = GridLayout.LayoutParams.MATCH_PARENT
             height = GridLayout.LayoutParams.WRAP_CONTENT
-            columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f)
+            columnSpec = GridLayout.spec(0, 1)
             setMargins(dpToPx(8), dpToPx(8), dpToPx(8), dpToPx(8))
         }
 
     private fun syncIngredientPlaceholders() {
-        val placeholders = mutableListOf<View>()
-        for (i in 0 until ingredientsLayout.childCount) {
-            val child = ingredientsLayout.getChildAt(i)
-            if (child.tag == placeholderTag) {
-                placeholders.add(child)
-            }
-        }
-        placeholders.forEach { ingredientsLayout.removeView(it) }
-
-        if (ingredientsFields.size % 2 != 0) {
-            val placeholder = View(this).apply {
-                tag = placeholderTag
-                isEnabled = false
-                isClickable = false
-                layoutParams = createGridChildLayoutParams()
-                alpha = 0f
-            }
-            ingredientsLayout.addView(placeholder)
-        }
+        // Больше не нужно: ингредиенты отображаются в 1 колонку.
     }
 
     private fun View.enableSwipeToDelete(onDelete: () -> Unit) {
@@ -498,12 +501,14 @@ class AddRecipeActivity : AppCompatActivity() {
             checkBox.isChecked = type != null && selectedDishTypeIds.contains(type.id)
         }
 
-        val selectedCookingMethods = recipe.cookingMethod
+        val selectedCookingMethodIds = recipe.cookingMethod
             ?.split(",")
             ?.map { it.trim() }
+            ?.filter { it.isNotEmpty() }
             ?: emptyList()
         cookingMethodCheckboxes.forEach { checkBox ->
-            checkBox.isChecked = selectedCookingMethods.contains(checkBox.text.toString())
+            val method = cookingMethodMap[checkBox.id]
+            checkBox.isChecked = method != null && selectedCookingMethodIds.contains(method.id)
         }
 
         if (selectedImageUri == null && !recipe.imageUri.isNullOrBlank()) {

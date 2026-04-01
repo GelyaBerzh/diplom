@@ -8,4 +8,5 @@
 <!--    <color name="errorColor">#FF6B6B</color> &lt;!&ndash; Мягкий томатный &ndash;&gt;-->
     <color name="white">#FFFFFF</color> <!-- Белый -->
     <color name="cardBackground">#FFFFFF</color> <!-- Белый -->
+    <color name="dropdownBackground">#C7C7C7</color>
 </resources>

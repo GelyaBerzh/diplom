@@ -20,9 +20,10 @@
     <string name="instructions_label">Инструкции</string>
     <string name="tags_label">Теги</string>
     <string name="edit_recipe_title">Редактирование рецепта</string>
+    <string name="add_recipe_title">Создание рецепта</string>
     <string name="KBZHU">КБЖУ на порцию</string>
     <string name="Cooking_Method_label">Способ приготовления</string>
-    <string name="tvDishType_label">Раздел</string>
+    <string name="tvDishType_label">Разделы</string>
     <string name="cbDishCold">Холодные закуски</string>
     <string name="cbDishFirst">Первые блюда</string>
     <string name="cbDishHot">Горячие блюда</string>
@@ -50,10 +51,22 @@
     <string name="close">Закрыть</string>
     <string name="views_text">Просмотры: %1$d</string>
     <string name="bottom_all_recipes">Все рецепты</string>
-    <string name="bottom_favorites">Избранное</string>
+    <string name="bottom_favorites">Все избранные</string>
     <string name="favorite">Избранное</string>
-    <string name="sections_title">Разделы</string>
     <string name="sections_all">Все разделы</string>
+    <string name="filters_title">Фильтры</string>
+    <string name="filter_all_methods">Все способы</string>
+    <string name="apply">Применить</string>
+    <string-array name="units_array">
+        <item>г</item>
+        <item>кг</item>
+        <item>мл</item>
+        <item>л</item>
+        <item>ч.л.</item>
+        <item>ст.л.</item>
+        <item>щепотка</item>
+        <item>шт</item>
+    </string-array>
     <string-array name="languages_array">
         <item>Русский</item>
         <item>English</item>

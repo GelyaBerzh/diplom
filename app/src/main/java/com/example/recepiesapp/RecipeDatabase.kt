@@ -17,8 +17,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         RecipeTagEntity::class,
         CategoryEntity::class,
         IngredientNutritionEntity::class,
+        CookingMethodEntity::class,
+        RecipeCookingMethodEntity::class,
     ],
-    version = 3,
+    version = 5,
 )
 @TypeConverters(Converters::class)
 abstract class RecipeDatabase : RoomDatabase() {
@@ -30,6 +32,8 @@ abstract class RecipeDatabase : RoomDatabase() {
     abstract fun recipeIngredientDao(): RecipeIngredientDao
     abstract fun recipeTagDao(): RecipeTagDao
     abstract fun ingredientNutritionDao(): IngredientNutritionDao
+    abstract fun cookingMethodDao(): CookingMethodDao
+    abstract fun recipeCookingMethodDao(): RecipeCookingMethodDao
 
     companion object {
         @Volatile
@@ -42,7 +46,7 @@ abstract class RecipeDatabase : RoomDatabase() {
                     RecipeDatabase::class.java,
                     "recipes.db"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                     .build()
                     .also { INSTANCE = it }
             }
@@ -161,6 +165,40 @@ abstract class RecipeDatabase : RoomDatabase() {
                     """.trimIndent()
                 )
                 db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_ingredient_nutrition_name ON ingredient_nutrition(name)")
+            }
+        }
+
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS cooking_methods (
+                        id TEXT NOT NULL,
+                        PRIMARY KEY(id)
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS recipe_cooking_methods (
+                        recipeId INTEGER NOT NULL,
+                        methodId TEXT NOT NULL,
+                        PRIMARY KEY(recipeId, methodId),
+                        FOREIGN KEY(recipeId) REFERENCES recipes(id) ON DELETE CASCADE,
+                        FOREIGN KEY(methodId) REFERENCES cooking_methods(id) ON DELETE CASCADE
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_recipe_cooking_methods_recipeId ON recipe_cooking_methods(recipeId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_recipe_cooking_methods_methodId ON recipe_cooking_methods(methodId)")
+            }
+        }
+
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Расширяем cooking_methods: добавляем названия на RU/EN.
+                db.execSQL("ALTER TABLE cooking_methods ADD COLUMN nameRu TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE cooking_methods ADD COLUMN nameEn TEXT NOT NULL DEFAULT ''")
             }
         }
     }
