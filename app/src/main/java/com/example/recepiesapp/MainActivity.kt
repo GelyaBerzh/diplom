@@ -16,6 +16,8 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.recepiesapp.databinding.ActivityMainBinding
 import java.util.Locale
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 
@@ -28,13 +30,10 @@ class MainActivity : AppCompatActivity() {
     private var recipes: MutableList<Recipe> = mutableListOf()
     private var currentCategoryFilter: DishType? = null
     private var currentCookingMethodFilter: CookingMethod? = null
+    private var searchJob: Job? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-//        enableEdgeToEdge()
-//        binding = ActivityMainBinding.inflate(layoutInflater)
-//        setContentView(binding.root)
-
         setAppLanguage(getCurrentLanguage())
         enableEdgeToEdge()
         binding = ActivityMainBinding.inflate(layoutInflater)
@@ -60,7 +59,7 @@ class MainActivity : AppCompatActivity() {
         lifecycleScope.launch {
             val loaded = recipeRepository.loadRecipes()
             recipes = loaded
-            recipesAdapter.submitList(recipes.toList())
+            searchRecipes("")
         }
     }
 
@@ -105,23 +104,34 @@ class MainActivity : AppCompatActivity() {
             }
 
             override fun onQueryTextChange(newText: String?): Boolean {
-                searchRecipes(newText ?: "")
+                runSearchWithDebounce(newText ?: "")
                 return true
             }
         })
         binding.searchView.clearFocus()
     }
 
+    private fun runSearchWithDebounce(query: String) {
+        searchJob?.cancel()
+        searchJob = lifecycleScope.launch {
+            delay(SEARCH_DEBOUNCE_MS)
+            searchRecipes(query)
+        }
+    }
+
     private fun searchRecipes(query: String) {
         val category = currentCategoryFilter
         val method = currentCookingMethodFilter
         val filteredRecipes = recipes.filter { recipe ->
+            //Поиск по тексту
             val matchesQuery =
                 query.isEmpty() ||
                         recipe.title.contains(query, ignoreCase = true) ||
                         recipe.ingredients.any { it.contains(query, ignoreCase = true) } ||
-                        recipe.tags.any { it.contains(query, ignoreCase = true) }
-
+                        recipe.tags.any { it.contains(query, ignoreCase = true) } ||
+                        recipe.cookingTimeMinutes.toString().contains(query) ||
+                        recipe.caloriesPerServing.toInt().toString().contains(query)
+                //фильтр по категории блюд
             val matchesCategory = category == null || run {
                 val ids = recipe.dishType
                     ?.split(",")
@@ -129,7 +139,7 @@ class MainActivity : AppCompatActivity() {
                     ?: emptyList()
                 ids.contains(category.id)
             }
-
+                //фильтр по способу приготовления
             val matchesMethod = method == null || run {
                 val ids = recipe.cookingMethod
                     ?.split(",")
@@ -140,7 +150,7 @@ class MainActivity : AppCompatActivity() {
 
             matchesQuery && matchesCategory && matchesMethod
         }
-        recipesAdapter.submitList(filteredRecipes)
+        recipesAdapter.submitList(filteredRecipes.sortedByTitle())
     }
 
     private fun setupBottomPanel() {
@@ -234,7 +244,9 @@ class MainActivity : AppCompatActivity() {
 
     fun addRecipe(newRecipe: Recipe) {
         recipes.add(newRecipe)
-        recipesAdapter.submitList(recipes.toList())
+        recipes.sortByTitle()
+        val currentQuery = binding.searchView.query?.toString() ?: ""
+        searchRecipes(currentQuery)
         lifecycleScope.launch(Dispatchers.IO) {
             recipeRepository.upsertRecipe(newRecipe)
         }
@@ -245,7 +257,9 @@ class MainActivity : AppCompatActivity() {
         val index = recipes.indexOfFirst { it.id == updatedRecipe.id }
         if (index >= 0) {
             recipes[index] = updatedRecipe
-            recipesAdapter.submitList(recipes.toList())
+            recipes.sortByTitle()
+            val currentQuery = binding.searchView.query?.toString() ?: ""
+            searchRecipes(currentQuery)
             lifecycleScope.launch(Dispatchers.IO) {
                 recipeRepository.upsertRecipe(updatedRecipe)
             }
@@ -256,8 +270,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun getDescriptionPreview(description: String): String {
-        return if (description.length > 200) {
-            description.substring(0, 200) + "..."
+        return if (description.length > 50) {
+            description.substring(0, 50) + "..."
         }
         else {
             description
@@ -323,7 +337,8 @@ class MainActivity : AppCompatActivity() {
         val updatedRecipe = if (index >= 0) {
             val incremented = recipes[index].copy(viewCount = recipes[index].viewCount + 1)
             recipes[index] = incremented
-            recipesAdapter.submitList(recipes.toList())
+            val currentQuery = binding.searchView.query?.toString() ?: ""
+            searchRecipes(currentQuery)
             lifecycleScope.launch(Dispatchers.IO) {
                 recipeRepository.upsertRecipe(incremented)
             }
@@ -357,7 +372,8 @@ class MainActivity : AppCompatActivity() {
     private fun deleteRecipe(recipe: Recipe) {
         val removed = recipes.removeIf { it.id == recipe.id }
         if (removed) {
-            recipesAdapter.submitList(recipes.toList())
+            val currentQuery = binding.searchView.query?.toString() ?: ""
+            searchRecipes(currentQuery)
             lifecycleScope.launch(Dispatchers.IO) {
                 recipeRepository.deleteRecipe(recipe.id)
             }
@@ -394,5 +410,6 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private const val REQUEST_ADD_EDIT_RECIPE = 1
+        private const val SEARCH_DEBOUNCE_MS = 180L
     }
 }

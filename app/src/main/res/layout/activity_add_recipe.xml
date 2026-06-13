@@ -74,7 +74,7 @@
                     app:strokeWidth="2dp" />
 
                 <com.google.android.material.floatingactionbutton.FloatingActionButton
-                    android:id="@+id/btnChangeImage"
+                    android:id="@+id/btnImageAction"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_gravity="end|bottom"
@@ -185,6 +185,27 @@
                     android:hint="@string/servings_hint"
                     android:inputType="number"
                     android:text="1"
+                    android:textColor="@color/textPrimary"
+                    android:textColorHint="@color/secondaryAccent" />
+
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="16dp"
+                android:layout_marginEnd="16dp"
+                android:layout_marginTop="12dp"
+                app:boxStrokeColor="@color/primaryAccent"
+                app:hintTextColor="@color/primaryAccent"
+                style="@style/Widget.Material3.TextInputLayout.OutlinedBox">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/etCookingTime"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="@string/cooking_time_hint"
+                    android:inputType="number"
                     android:textColor="@color/textPrimary"
                     android:textColorHint="@color/secondaryAccent" />
 

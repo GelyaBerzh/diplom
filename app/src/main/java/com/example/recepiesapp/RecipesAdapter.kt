@@ -1,9 +1,7 @@
 package com.example.recepiesapp
 
-import android.net.Uri
 import android.view.LayoutInflater
 import android.view.ViewGroup
-import android.widget.ImageView
 import androidx.core.view.isVisible
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
@@ -42,6 +40,13 @@ class RecipesAdapter(
             binding.tvDescription.text = getDescriptionPreview(recipe.description)
             binding.tvServings.text =
                 binding.root.context.getString(R.string.servings_text, recipe.servings)
+            binding.tvCookingTime.text =
+                binding.root.context.getString(R.string.cooking_time_text, recipe.cookingTimeMinutes)
+            binding.tvCalories.text =
+                binding.root.context.getString(
+                    R.string.calories_text,
+                    recipe.caloriesPerServing.toInt()
+                )
             binding.tvViews.text =
                 binding.root.context.getString(R.string.views_text, recipe.viewCount)
             binding.tvTags.text =
@@ -55,22 +60,11 @@ class RecipesAdapter(
             binding.btnEdit.setOnClickListener { onEditClick(recipe) }
             binding.btnDelete.setOnClickListener { onDeleteClick(recipe) }
 
-            binding.ivRecipeImage.apply {
-                if (recipe.imageUri.isNullOrBlank()) {
-                    setImageResource(R.drawable.ic_camera)
-                    scaleType = ImageView.ScaleType.CENTER_INSIDE
-                    setPadding(
-                        placeholderPadding,
-                        placeholderPadding,
-                        placeholderPadding,
-                        placeholderPadding
-                    )
-                } else {
-                    setImageURI(Uri.parse(recipe.imageUri))
-                    scaleType = ImageView.ScaleType.CENTER_CROP
-                    setPadding(0, 0, 0, 0)
-                }
-            }
+            RecipeImageUtils.setRecipeImage(
+                binding.ivRecipeImage,
+                recipe.imageUri,
+                placeholderPadding
+            )
         }
     }
 

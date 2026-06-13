@@ -20,7 +20,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         CookingMethodEntity::class,
         RecipeCookingMethodEntity::class,
     ],
-    version = 5,
+    version = 6,
 )
 @TypeConverters(Converters::class)
 abstract class RecipeDatabase : RoomDatabase() {
@@ -46,7 +46,7 @@ abstract class RecipeDatabase : RoomDatabase() {
                     RecipeDatabase::class.java,
                     "recipes.db"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
                     .build()
                     .also { INSTANCE = it }
             }
@@ -199,6 +199,12 @@ abstract class RecipeDatabase : RoomDatabase() {
                 // Расширяем cooking_methods: добавляем названия на RU/EN.
                 db.execSQL("ALTER TABLE cooking_methods ADD COLUMN nameRu TEXT NOT NULL DEFAULT ''")
                 db.execSQL("ALTER TABLE cooking_methods ADD COLUMN nameEn TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
+        private val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE recipes ADD COLUMN cookingTimeMinutes INTEGER NOT NULL DEFAULT 0")
             }
         }
     }

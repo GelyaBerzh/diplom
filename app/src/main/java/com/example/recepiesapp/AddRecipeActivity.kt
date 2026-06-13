@@ -2,7 +2,6 @@ package com.example.recepiesapp
 
 import android.content.Intent
 import android.graphics.Rect
-import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
@@ -13,7 +12,6 @@ import android.widget.ArrayAdapter
 import android.widget.AutoCompleteTextView
 import android.widget.CheckBox
 import android.widget.GridLayout
-import android.widget.ImageView
 import android.widget.ScrollView
 import android.widget.Spinner
 import android.widget.Toast
@@ -21,6 +19,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.widget.doAfterTextChanged
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.appbar.AppBarLayout
 import com.google.android.material.appbar.MaterialToolbar
@@ -30,6 +29,7 @@ import com.google.android.material.chip.ChipGroup
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.google.android.material.imageview.ShapeableImageView
 import com.google.android.material.textfield.TextInputEditText
+import com.google.android.material.textfield.TextInputLayout
 import kotlinx.coroutines.launch
 
 class AddRecipeActivity : AppCompatActivity() {
@@ -44,7 +44,12 @@ class AddRecipeActivity : AppCompatActivity() {
     private lateinit var etTagInput: TextInputEditText
     private lateinit var btnAddTag: MaterialButton
     private lateinit var ivRecipeImage: ShapeableImageView
+    private lateinit var btnImageAction: FloatingActionButton
     private lateinit var etServings: TextInputEditText
+    private lateinit var etCookingTime: TextInputEditText
+    private lateinit var etTitle: TextInputEditText
+    private lateinit var etDescription: TextInputEditText
+    private lateinit var etInstructions: TextInputEditText
     private lateinit var ingredientAdapter: ArrayAdapter<String>
 
     private val tags = mutableListOf<String>()
@@ -54,7 +59,7 @@ class AddRecipeActivity : AppCompatActivity() {
     private lateinit var cookingMethodMap: Map<Int, CookingMethod>
     private var focusedView: View? = null
     private val placeholderTag = "ingredient_placeholder"
-    private var selectedImageUri: Uri? = null
+    private var selectedImagePath: String? = null
     private var imagePlaceholderPadding: Int = 0
     private var recipeToEdit: Recipe? = null
     private var isEditMode: Boolean = false
@@ -62,10 +67,17 @@ class AddRecipeActivity : AppCompatActivity() {
     private val pickImageLauncher =
         registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
             uri?.let {
-                releasePersistedUriPermission(selectedImageUri)
-                persistUriPermission(it)
-                selectedImageUri = it
-                updateImagePreview(it)
+                val localPath = RecipeImageUtils.copyImageFromUri(this, it)
+                if (localPath == null) {
+                    Toast.makeText(this, getString(R.string.image_load_error), Toast.LENGTH_SHORT).show()
+                    return@let
+                }
+                if (selectedImagePath != recipeToEdit?.imageUri) {
+                    RecipeImageUtils.deleteImageIfOwned(this, selectedImagePath)
+                }
+                selectedImagePath = localPath
+                updateImagePreview(localPath)
+                updateImageActionButton()
             }
         }
 
@@ -97,19 +109,21 @@ class AddRecipeActivity : AppCompatActivity() {
 
         imagePlaceholderPadding = resources.getDimensionPixelSize(R.dimen.recipe_image_placeholder_padding)
         ivRecipeImage = findViewById(R.id.ivRecipeImage)
-        val btnChangeImage = findViewById<FloatingActionButton>(R.id.btnChangeImage)
-        val savedUri = savedInstanceState?.getString(KEY_IMAGE_URI)?.takeIf { it.isNotBlank() }?.let { Uri.parse(it) }
-        selectedImageUri = savedUri
-        updateImagePreview(selectedImageUri)
+        btnImageAction = findViewById(R.id.btnImageAction)
+        selectedImagePath = savedInstanceState?.getString(KEY_IMAGE_PATH)?.takeIf { it.isNotBlank() }
+        updateImagePreview(selectedImagePath)
+        updateImageActionButton()
 
-        val imageClickListener = View.OnClickListener { openImagePicker() }
-        ivRecipeImage.setOnClickListener(imageClickListener)
-        btnChangeImage.setOnClickListener(imageClickListener)
+        ivRecipeImage.setOnClickListener { openImagePicker() }
 
         chipGroupTags = findViewById(R.id.chipGroupTags)
         etTagInput = findViewById(R.id.etTagInput)
         btnAddTag = findViewById<MaterialButton>(R.id.btnAddTag)
         etServings = findViewById(R.id.etServings)
+        etCookingTime = findViewById(R.id.etCookingTime)
+        etTitle = findViewById(R.id.etTitle)
+        etDescription = findViewById(R.id.etDescription)
+        etInstructions = findViewById(R.id.etInstructions)
 
         dishTypeCheckboxes = listOf(
             findViewById(R.id.cbDishCold),
@@ -152,12 +166,19 @@ class AddRecipeActivity : AppCompatActivity() {
         )
 
         listOf<View>(
-            findViewById<TextInputEditText>(R.id.etTitle),
-            findViewById<TextInputEditText>(R.id.etDescription),
-            findViewById<TextInputEditText>(R.id.etInstructions),
+            etTitle,
+            etDescription,
+            etInstructions,
             etServings,
+            etCookingTime,
             etTagInput
         ).forEach { it.registerAutoScroll() }
+
+        registerValidationAutoClear(etTitle)
+        registerValidationAutoClear(etDescription)
+        registerValidationAutoClear(etInstructions)
+        registerValidationAutoClear(etServings)
+        registerValidationAutoClear(etCookingTime)
 
         btnAddTag.setOnClickListener {
             addTag()
@@ -206,6 +227,8 @@ class AddRecipeActivity : AppCompatActivity() {
 
         autoCompleteTextView.registerAutoScroll()
         quantityEditText.registerAutoScroll()
+        registerValidationAutoClear(autoCompleteTextView)
+        registerValidationAutoClear(quantityEditText)
 
         // настройка выпадающего списка для единиц измерения
         val unitAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, units)
@@ -232,15 +255,16 @@ class AddRecipeActivity : AppCompatActivity() {
 
         ingredientsLayout.addView(ingredientView)
         ingredientsFields.add(Triple(autoCompleteTextView, quantityEditText, unitSpinner))
-        syncIngredientPlaceholders()
+
     }
 
     private fun saveRecipe() {
-        val title = findViewById<TextInputEditText>(R.id.etTitle).text.toString().trim()
-        val description = findViewById<TextInputEditText>(R.id.etDescription).text.toString().trim()
-        val instructions = findViewById<TextInputEditText>(R.id.etInstructions).text.toString().trim()
+        val title = etTitle.text.toString().trim()
+        val description = etDescription.text.toString().trim()
+        val instructions = etInstructions.text.toString().trim()
         val servingsValue = etServings.text?.toString()?.trim()
         val servings = servingsValue?.toIntOrNull()?.takeIf { it > 0 } ?: DEFAULT_SERVINGS
+        val cookingTimeMinutes = etCookingTime.text?.toString()?.trim()?.toIntOrNull()?.coerceAtLeast(0) ?: 0
 
         val recipeTags = tags.toList()
 
@@ -284,7 +308,25 @@ class AddRecipeActivity : AppCompatActivity() {
             }
         }
 
-        if (title.isNotEmpty() && ingredientsStrings.isNotEmpty()) {
+        val validationResult = validateRequiredFields(
+            title = title,
+            description = description,
+            instructions = instructions,
+            servingsValue = servingsValue
+        )
+        if (!validationResult.isValid) {
+            validationResult.firstInvalidView?.let { scrollToView(it) }
+            val messageRes = if (validationResult.invalidFieldsCount > 1) {
+                R.string.recipe_required_fields_many
+            } else {
+                R.string.recipe_required_field_single
+            }
+            Toast.makeText(this, getString(messageRes), Toast.LENGTH_SHORT).show()
+            Log.e("AddRecipeActivity", "Не заполнены обязательные поля: ${validationResult.invalidFieldsCount}")
+            return
+        }
+
+        if (ingredientsStrings.isNotEmpty()) {
             lifecycleScope.launch {
                 val repository = RecipeRepository(this@AddRecipeActivity)
                 val recipeId = recipeToEdit?.id ?: generateUniqueId()
@@ -293,6 +335,13 @@ class AddRecipeActivity : AppCompatActivity() {
 
                 val nutritionSummary =
                     repository.calculateRecipeNutritionFromDb(ingredientAmounts, servings)
+
+                val imageUri = RecipeImageUtils.finalizeRecipeImage(
+                    this@AddRecipeActivity,
+                    selectedImagePath,
+                    recipeId,
+                    recipeToEdit?.imageUri
+                )
 
                 val resultRecipe = Recipe(
                     id = recipeId,
@@ -304,7 +353,8 @@ class AddRecipeActivity : AppCompatActivity() {
                     dishType = dishType.takeIf { it.isNotEmpty() },
                     cookingMethod = cookingMethod.takeIf { it.isNotEmpty() },
                     servings = servings,
-                    imageUri = selectedImageUri?.toString(),
+                    imageUri = imageUri,
+                    cookingTimeMinutes = cookingTimeMinutes,
                     caloriesPerServing = nutritionSummary.calories,
                     proteinPerServing = nutritionSummary.protein,
                     fatPerServing = nutritionSummary.fat,
@@ -323,9 +373,102 @@ class AddRecipeActivity : AppCompatActivity() {
                 finish()
             }
         } else {
-            Toast.makeText(this, "Некорректные данные рецепта", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, getString(R.string.recipe_required_field_single), Toast.LENGTH_SHORT).show()
             Log.e("AddRecipeActivity", "Некорректные данные рецепта")
         }
+    }
+
+    private fun validateRequiredFields(
+        title: String,
+        description: String,
+        instructions: String,
+        servingsValue: String?
+    ): ValidationResult {
+        var invalidCount = 0
+        var firstInvalidView: View? = null
+
+        fun markInvalid(view: View, messageRes: Int) {
+            invalidCount += 1
+            if (firstInvalidView == null) firstInvalidView = view
+            view.findTextInputLayout()?.error = getString(messageRes)
+        }
+
+        fun clearError(view: View) {
+            view.findTextInputLayout()?.error = null
+        }
+
+        if (title.isBlank()) {
+            markInvalid(etTitle, R.string.error_required_field)
+        } else {
+            clearError(etTitle)
+        }
+
+        if (description.isBlank()) {
+            markInvalid(etDescription, R.string.error_required_field)
+        } else {
+            clearError(etDescription)
+        }
+
+        if (instructions.isBlank()) {
+            markInvalid(etInstructions, R.string.error_required_field)
+        } else {
+            clearError(etInstructions)
+        }
+
+        val servings = servingsValue?.toIntOrNull()
+        if (servingsValue.isNullOrBlank() || servings == null || servings <= 0) {
+            markInvalid(etServings, R.string.error_servings_positive)
+        } else {
+            clearError(etServings)
+        }
+
+        var hasAtLeastOneValidIngredient = false
+        ingredientsFields.forEach { (ingredient, quantity, _) ->
+            val ingredientText = ingredient.text?.toString()?.trim().orEmpty()
+            val quantityText = quantity.text?.toString()?.trim().orEmpty()
+            val quantityValue = quantityText.toDoubleOrNull()
+            val ingredientLayout = ingredient.findTextInputLayout()
+            val quantityLayout = quantity.findTextInputLayout()
+
+            ingredientLayout?.error = null
+            quantityLayout?.error = null
+
+            val ingredientFilled = ingredientText.isNotEmpty()
+            val quantityFilled = quantityText.isNotEmpty()
+            val isRowEmpty = !ingredientFilled && !quantityFilled
+
+            if (isRowEmpty) return@forEach
+
+            val isIngredientValid = ingredientFilled
+            val isQuantityValid = quantityFilled && quantityValue != null && quantityValue > 0.0
+            if (isIngredientValid && isQuantityValid) {
+                hasAtLeastOneValidIngredient = true
+            } else {
+                if (!isIngredientValid) {
+                    invalidCount += 1
+                    if (firstInvalidView == null) firstInvalidView = ingredient
+                    ingredientLayout?.error = getString(R.string.error_required_field)
+                }
+                if (!isQuantityValid) {
+                    invalidCount += 1
+                    if (firstInvalidView == null) firstInvalidView = quantity
+                    quantityLayout?.error = getString(R.string.error_quantity_positive)
+                }
+            }
+        }
+
+        if (!hasAtLeastOneValidIngredient) {
+            invalidCount += 1
+            val firstIngredient = ingredientsFields.firstOrNull()?.first ?: ingredientsLayout
+            if (firstInvalidView == null) firstInvalidView = firstIngredient
+            firstIngredient.findTextInputLayout()?.error = getString(R.string.error_add_ingredient)
+        }
+
+        return ValidationResult(
+            isValid = invalidCount == 0,
+            firstInvalidView = firstInvalidView,
+            invalidFieldsCount = invalidCount
+        )
     }
 
     private fun generateUniqueId(): Int {
@@ -382,9 +525,29 @@ class AddRecipeActivity : AppCompatActivity() {
         focusedView?.let { scrollToView(it) }
     }
 
+    private fun registerValidationAutoClear(view: View) {
+        when (view) {
+            is TextInputEditText -> view.doAfterTextChanged {
+                view.findTextInputLayout()?.error = null
+            }
+            is AutoCompleteTextView -> view.doAfterTextChanged {
+                view.findTextInputLayout()?.error = null
+            }
+        }
+    }
+
+    private fun View.findTextInputLayout(): TextInputLayout? {
+        var current: View? = this
+        while (current != null) {
+            if (current is TextInputLayout) return current
+            current = current.parent as? View
+        }
+        return null
+    }
+
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
-        selectedImageUri?.toString()?.let { outState.putString(KEY_IMAGE_URI, it) }
+        selectedImagePath?.let { outState.putString(KEY_IMAGE_PATH, it) }
     }
 
     private fun dpToPx(dp: Int): Int =
@@ -468,14 +631,30 @@ class AddRecipeActivity : AppCompatActivity() {
         pickImageLauncher.launch(IMAGE_MIME_TYPES)
     }
 
-    private fun updateImagePreview(uri: Uri?) {
-        if (uri == null) {
-            ivRecipeImage.setImageResource(R.drawable.ic_camera)
-            ivRecipeImage.scaleType = ImageView.ScaleType.CENTER_INSIDE
-        } else {
-            ivRecipeImage.setImageURI(uri)
-            ivRecipeImage.scaleType = ImageView.ScaleType.CENTER_CROP
+    private fun removeImage() {
+        if (selectedImagePath != recipeToEdit?.imageUri) {
+            RecipeImageUtils.deleteImageIfOwned(this, selectedImagePath)
         }
+        selectedImagePath = null
+        updateImagePreview(null)
+        updateImageActionButton()
+    }
+
+    private fun updateImageActionButton() {
+        val hasImage = selectedImagePath != null
+        if (hasImage) {
+            btnImageAction.setImageResource(android.R.drawable.ic_menu_delete)
+            btnImageAction.contentDescription = getString(R.string.remove_image)
+            btnImageAction.setOnClickListener { removeImage() }
+        } else {
+            btnImageAction.setImageResource(R.drawable.ic_camera)
+            btnImageAction.contentDescription = getString(R.string.select_image)
+            btnImageAction.setOnClickListener { openImagePicker() }
+        }
+    }
+
+    private fun updateImagePreview(imagePath: String?) {
+        RecipeImageUtils.setRecipeImage(ivRecipeImage, imagePath, imagePlaceholderPadding)
     }
 
     private fun retrieveRecipeToEdit(): Recipe? =
@@ -491,6 +670,7 @@ class AddRecipeActivity : AppCompatActivity() {
         findViewById<TextInputEditText>(R.id.etDescription).setText(recipe.description)
         findViewById<TextInputEditText>(R.id.etInstructions).setText(recipe.instructions)
         etServings.setText(recipe.servings.toString())
+        etCookingTime.setText(recipe.cookingTimeMinutes.takeIf { it > 0 }?.toString().orEmpty())
 
         val selectedDishTypeIds = recipe.dishType
             ?.split(",")
@@ -511,10 +691,11 @@ class AddRecipeActivity : AppCompatActivity() {
             checkBox.isChecked = method != null && selectedCookingMethodIds.contains(method.id)
         }
 
-        if (selectedImageUri == null && !recipe.imageUri.isNullOrBlank()) {
-            selectedImageUri = Uri.parse(recipe.imageUri)
+        if (selectedImagePath == null && !recipe.imageUri.isNullOrBlank()) {
+            selectedImagePath = recipe.imageUri
         }
-        updateImagePreview(selectedImageUri)
+        updateImagePreview(selectedImagePath)
+        updateImageActionButton()
 
         tags.clear()
         chipGroupTags.removeAllViews()
@@ -531,8 +712,6 @@ class AddRecipeActivity : AppCompatActivity() {
         }
         if (ingredientsFields.isEmpty()) {
             addIngredientField(ingredientAdapter)
-        } else {
-            syncIngredientPlaceholders()
         }
     }
 
@@ -549,32 +728,21 @@ class AddRecipeActivity : AppCompatActivity() {
         }
     }
 
-    private fun persistUriPermission(uri: Uri) {
-        try {
-            contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        } catch (securityException: SecurityException) {
-            Log.w(TAG, "Не удалось сохранить доступ к изображению", securityException)
-        }
-    }
-
-    private fun releasePersistedUriPermission(uri: Uri?) {
-        if (uri == null) return
-        try {
-            contentResolver.releasePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        } catch (securityException: SecurityException) {
-            Log.w(TAG, "Не удалось освободить доступ к изображению", securityException)
-        }
-    }
-
     private data class IngredientInitialData(
         val name: String,
         val quantity: String,
         val unit: String
     )
 
+    private data class ValidationResult(
+        val isValid: Boolean,
+        val firstInvalidView: View?,
+        val invalidFieldsCount: Int
+    )
+
     companion object {
         private const val TAG = "AddRecipeActivity"
-        private const val KEY_IMAGE_URI = "key_image_uri"
+        private const val KEY_IMAGE_PATH = "key_image_path"
         const val EXTRA_NEW_RECIPE = "NEW_RECIPE"
         const val EXTRA_UPDATED_RECIPE = "UPDATED_RECIPE"
         const val EXTRA_RECIPE_TO_EDIT = "EXTRA_RECIPE_TO_EDIT"

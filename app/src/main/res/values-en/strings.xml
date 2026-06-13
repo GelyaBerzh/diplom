@@ -12,10 +12,15 @@
     <string name="save">Save</string>
     <string name="recipe_photo">Recipe photo</string>
     <string name="select_image">Select image</string>
+    <string name="remove_image">Remove photo</string>
+    <string name="image_load_error">Failed to load image</string>
     <string name="recipe_image_desc">Recipe image</string>
     <string name="servings_hint">Number of servings</string>
+    <string name="cooking_time_hint">Cooking time (min)</string>
     <string name="servings_label">Portions</string>
     <string name="servings_text">Portions: %1$d</string>
+    <string name="cooking_time_text">Cooking time: %1$d min</string>
+    <string name="calories_text">Calories: %1$d kcal</string>
     <string name="ingredients_label">Ingredients</string>
     <string name="instructions_label">Instructions</string>
     <string name="tags_label">Tags</string>
@@ -70,4 +75,10 @@
         <item>pcs</item>
     </string-array>
     <string name="back">Back</string>
+    <string name="error_required_field">Required field</string>
+    <string name="error_servings_positive">Enter the number of servings greater than 0</string>
+    <string name="error_quantity_positive">Enter a quantity greater than 0</string>
+    <string name="error_add_ingredient">Add at least one ingredient.</string>
+    <string name="recipe_required_field_single">Fill in the required field</string>
+    <string name="recipe_required_fields_many">Fill in the required fields</string>
 </resources>

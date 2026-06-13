@@ -15,6 +15,8 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.recepiesapp.databinding.ActivityFavoritesBinding
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class FavoritesActivity : AppCompatActivity() {
@@ -25,6 +27,7 @@ class FavoritesActivity : AppCompatActivity() {
     private var recipes: MutableList<Recipe> = mutableListOf()
     private var currentCategoryFilter: DishType? = null
     private var currentCookingMethodFilter: CookingMethod? = null
+    private var searchJob: Job? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -90,11 +93,19 @@ class FavoritesActivity : AppCompatActivity() {
             }
 
             override fun onQueryTextChange(newText: String?): Boolean {
-                searchRecipes(newText ?: "")
+                runSearchWithDebounce(newText ?: "")
                 return true
             }
         })
         binding.searchView.clearFocus()
+    }
+
+    private fun runSearchWithDebounce(query: String) {
+        searchJob?.cancel()
+        searchJob = lifecycleScope.launch {
+            delay(SEARCH_DEBOUNCE_MS)
+            searchRecipes(query)
+        }
     }
 
     private fun setupBottomPanel() {
@@ -170,7 +181,9 @@ class FavoritesActivity : AppCompatActivity() {
                 query.isEmpty() ||
                         recipe.title.contains(query, ignoreCase = true) ||
                         recipe.ingredients.any { it.contains(query, ignoreCase = true) } ||
-                        recipe.tags.any { it.contains(query, ignoreCase = true) }
+                        recipe.tags.any { it.contains(query, ignoreCase = true) } ||
+                        recipe.cookingTimeMinutes.toString().contains(query) ||
+                        recipe.caloriesPerServing.toInt().toString().contains(query)
 
             val matchesCategory = category == null || run {
                 val ids = recipe.dishType
@@ -190,7 +203,7 @@ class FavoritesActivity : AppCompatActivity() {
 
             matchesQuery && matchesCategory && matchesMethod
         }
-        recipesAdapter.submitList(filteredRecipes)
+        recipesAdapter.submitList(filteredRecipes.sortedByTitle())
     }
 
     private fun toggleFavorite(recipe: Recipe) {
@@ -237,7 +250,8 @@ class FavoritesActivity : AppCompatActivity() {
     private fun deleteRecipe(recipe: Recipe) {
         val removed = recipes.removeIf { it.id == recipe.id }
         if (removed) {
-            recipesAdapter.submitList(recipes.toList())
+            val currentQuery = binding.searchView.query?.toString() ?: ""
+            searchRecipes(currentQuery)
             lifecycleScope.launch(Dispatchers.IO) {
                 recipeRepository.deleteRecipe(recipe.id)
             }
@@ -270,7 +284,9 @@ class FavoritesActivity : AppCompatActivity() {
     private fun addRecipe(newRecipe: Recipe) {
         if (!newRecipe.isFavorite) return
         recipes.add(newRecipe)
-        recipesAdapter.submitList(recipes.toList())
+        recipes.sortByTitle()
+        val currentQuery = binding.searchView.query?.toString() ?: ""
+        searchRecipes(currentQuery)
         lifecycleScope.launch(Dispatchers.IO) {
             recipeRepository.upsertRecipe(newRecipe)
         }
@@ -287,12 +303,12 @@ class FavoritesActivity : AppCompatActivity() {
         } else {
             if (index >= 0) recipes.removeAt(index)
         }
-        recipesAdapter.submitList(recipes.toList())
+        recipes.sortByTitle()
+        val currentQuery = binding.searchView.query?.toString() ?: ""
+        searchRecipes(currentQuery)
         lifecycleScope.launch(Dispatchers.IO) {
             recipeRepository.upsertRecipe(updatedRecipe)
         }
-        val currentQuery = binding.searchView.query?.toString() ?: ""
-        searchRecipes(currentQuery)
     }
 
     private fun Intent.getRecipeFromResult(key: String): Recipe? =
@@ -358,6 +374,7 @@ class FavoritesActivity : AppCompatActivity() {
 
     companion object {
         private const val REQUEST_ADD_EDIT_RECIPE = 1
+        private const val SEARCH_DEBOUNCE_MS = 180L
     }
 }
 

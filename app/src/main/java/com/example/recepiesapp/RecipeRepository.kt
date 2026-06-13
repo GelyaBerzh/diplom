@@ -38,11 +38,13 @@ class RecipeRepository(private val context: Context) {
             if (dbRecipes.isNotEmpty()) {
                 dbRecipes
                     .map { it.toDomain().withNormalizedDishType().withNormalizedCookingMethod() }
+                    .sortedByTitle()
                     .toMutableList()
             } else {
                 // Миграция из файла, если БД пустая
                 val legacyRecipes = loadRecipesFromFile()
                     .map { it.withNormalizedDishType().withNormalizedCookingMethod() }
+                    .sortedByTitle()
                     .toMutableList()
                 if (legacyRecipes.isNotEmpty()) {
                     recipeDao.insertAll(legacyRecipes.map { it.toEntity() })
@@ -87,7 +89,9 @@ class RecipeRepository(private val context: Context) {
 
     suspend fun deleteRecipe(recipeId: Int) = withContext(Dispatchers.IO) {
         try {
+            val recipe = recipeDao.getById(recipeId)
             recipeDao.deleteById(recipeId)
+            RecipeImageUtils.deleteImageIfOwned(context, recipe?.imageUri)
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -99,6 +103,7 @@ class RecipeRepository(private val context: Context) {
             ensureDefaultCookingMethods()
             recipeDao.getFavorites()
                 .map { it.toDomain().withNormalizedDishType().withNormalizedCookingMethod() }
+                .sortedByTitle()
                 .toMutableList()
         } catch (e: Exception) {
             e.printStackTrace()

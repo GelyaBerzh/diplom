@@ -1,7 +1,6 @@
 package com.example.recepiesapp
 
 import android.content.res.ColorStateList
-import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.view.View
@@ -73,24 +72,18 @@ class RecipeDetailActivity : AppCompatActivity() {
     private fun setupImage(recipe: Recipe) {
         val imagePadding = resources.getDimensionPixelSize(R.dimen.recipe_image_placeholder_padding)
         val recipeImageView = findViewById<ShapeableImageView>(R.id.ivRecipeImage)
-        if (recipe.imageUri.isNullOrBlank()) {
-            recipeImageView.setImageResource(R.drawable.ic_camera)
-            recipeImageView.scaleType = ImageView.ScaleType.CENTER_INSIDE
-            recipeImageView.setPadding(imagePadding, imagePadding, imagePadding, imagePadding)
-        } else {
-            recipeImageView.setImageURI(Uri.parse(recipe.imageUri))
-            recipeImageView.scaleType = ImageView.ScaleType.CENTER_CROP
-            recipeImageView.setPadding(0, 0, 0, 0)
-        }
+        RecipeImageUtils.setRecipeImage(recipeImageView, recipe.imageUri, imagePadding)
     }
 
     private fun setupTextBlocks(recipe: Recipe) {
         findViewById<TextView>(R.id.tvTitle).text = recipe.title
         findViewById<TextView>(R.id.tvServings).text =
             getString(R.string.servings_text, recipe.servings)
+        findViewById<TextView>(R.id.tvCookingTime).text =
+            getString(R.string.cooking_time_text, recipe.cookingTimeMinutes)
 
         findViewById<TextView>(R.id.tvCalories).text =
-            "Калории: ${"%.0f".format(recipe.caloriesPerServing)} ккал"
+            getString(R.string.calories_text, recipe.caloriesPerServing.toInt())
 
         findViewById<TextView>(R.id.tvProtein).text =
             "Белки: ${"%.1f".format(recipe.proteinPerServing)} г"

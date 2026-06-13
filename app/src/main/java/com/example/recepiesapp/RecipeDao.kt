@@ -9,10 +9,10 @@ import androidx.room.Update
 @Dao
 interface RecipeDao {
 
-    @Query("SELECT * FROM recipes")
+    @Query("SELECT * FROM recipes ORDER BY title COLLATE NOCASE")
     suspend fun getAll(): List<RecipeEntity>
 
-    @Query("SELECT * FROM recipes WHERE isFavorite = 1")
+    @Query("SELECT * FROM recipes WHERE isFavorite = 1 ORDER BY title COLLATE NOCASE")
     suspend fun getFavorites(): List<RecipeEntity>
 
     @Query("SELECT * FROM recipes WHERE id = :id LIMIT 1")
